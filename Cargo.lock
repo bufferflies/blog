@@ -9,3 +9,7 @@ version = "0.1.0"
 [[package]]
 name = "leetcode"
 version = "0.1.0"
+
+[[package]]
+name = "sql"
+version = "0.1.0"

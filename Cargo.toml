@@ -6,9 +6,10 @@ edition = "2021"
 [workspace]
 resolver = "2"
 members = [ 
-    "leetcode",
+    "leetcode", "sql",
 ]
 
 [workspace.dependencies]
 leetcode = { path = "./leetcode" }
+sql = { path = "./sql" }
 

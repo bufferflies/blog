@@ -35,7 +35,7 @@ impl StockSpanner {
     }
 }
 
-const fn is_single_bracket(left: u8, right:u8) -> bool {
+const fn is_single_bracket(left: u8, right: u8) -> bool {
     match left {
         b'(' => right == b')',
         b'{' => right == b'}',
@@ -46,21 +46,20 @@ const fn is_single_bracket(left: u8, right:u8) -> bool {
 
 impl Solution {
     pub fn is_valid(s: String) -> bool {
-        let mut left_stack=vec![];
-        for c in s.as_bytes().iter(){
-            match c{
-                b'('|b'{'|b'[' => left_stack.push(c),
-                b')'|b'}' |b']'  => {
-                    if left_stack.is_empty(){
+        let mut left_stack = vec![];
+        for c in s.as_bytes().iter() {
+            match c {
+                b'(' | b'{' | b'[' => left_stack.push(c),
+                b')' | b'}' | b']' => {
+                    if left_stack.is_empty() {
                         return false;
                     }
-                    let valid=is_single_bracket(*left_stack.pop().unwrap(), *c);
-                    if !valid{
+                    let valid = is_single_bracket(*left_stack.pop().unwrap(), *c);
+                    if !valid {
                         return false;
                     }
-                },
+                }
                 _ => return false,
-
             }
         }
         left_stack.is_empty()
