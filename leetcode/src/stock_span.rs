@@ -6,10 +6,8 @@ struct StockSpanner {
     count: i32,
 }
 
-/**
- * `&self` means the method takes an immutable reference.
- * If you need a mutable reference, change it to `&mut self` instead.
- */
+/// `&self` means the method takes an immutable reference.
+/// If you need a mutable reference, change it to `&mut self` instead.
 impl StockSpanner {
     fn new() -> Self {
         Self {

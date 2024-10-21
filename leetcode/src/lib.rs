@@ -35,19 +35,19 @@ impl Display for TreeNode {
     fn fmt(&self, f: &mut std::fmt::Formatter<'_>) -> std::fmt::Result {
         // 递归格式化左子树
         if let Some(ref left) = self.left {
-            write!(f, "({}, ", left.borrow())?;  // 打印左子树
+            write!(f, "({}, ", left.borrow())?; // 打印左子树
         } else {
-            write!(f, "(None, ")?;  // 如果左子树为空
+            write!(f, "(None, ")?; // 如果左子树为空
         }
-        
+
         // 打印当前节点的值
         write!(f, "{}", self.val)?;
 
         // 递归格式化右子树
         if let Some(ref right) = self.right {
-            write!(f, ", {})", right.borrow())  // 打印右子树
+            write!(f, ", {})", right.borrow()) // 打印右子树
         } else {
-            write!(f, ", None)")  // 如果右子树为空
+            write!(f, ", None)") // 如果右子树为空
         }
     }
 }
@@ -94,8 +94,8 @@ mod tests {
     }
 
     #[test]
-    fn  test_display_treenode() {
-        let tree= crate::TreeNode {
+    fn test_display_treenode() {
+        let tree = crate::TreeNode {
             val: 1,
             left: Some(Rc::new(RefCell::new(crate::TreeNode {
                 val: 2,
@@ -108,8 +108,7 @@ mod tests {
                 right: None,
             }))),
         };
-        let str= tree.to_string();
-        assert_eq!( "((None, 2, None), 1, (None, 3, None))", str,"str:{str}");
-        
+        let str = tree.to_string();
+        assert_eq!("((None, 2, None), 1, (None, 3, None))", str, "str:{str}");
     }
 }
