@@ -3,10 +3,13 @@
 
 use std::{cell::RefCell, fmt::Display, rc::Rc};
 mod daily_temperatures;
+mod delete_middle_2095;
 mod is_symmetric_101;
 mod least_bricks;
 mod longest_substring;
+mod merge_two_lists_21;
 mod reverse_list_206;
+mod sort_list_148;
 mod stock_span;
 mod three_num;
 
@@ -76,9 +79,30 @@ impl ListNode {
     }
 }
 
+impl From<Vec<i32>> for ListNode {
+    fn from(v: Vec<i32>) -> Self {
+        let mut head = Box::new(ListNode::new(0));
+        let mut cur = &mut head;
+        for i in v {
+            cur.next = Some(Box::new(ListNode::new(i)));
+            cur = cur.next.as_mut().unwrap();
+        }
+        *head.next.take().unwrap()
+    }
+}
+
 #[cfg(test)]
 mod tests {
-    use std::{cell::RefCell, rc::Rc};
+    use std::{cell::RefCell, rc::Rc, vec};
+
+    use crate::ListNode;
+
+    #[test]
+    fn test_from_vec() {
+        let arr = vec![1, 2, 3];
+        let list: ListNode = arr.into();
+        assert_eq!(list.to_string(), "1->2->3");
+    }
 
     #[test]
     fn test_display_listnode() {
