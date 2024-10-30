@@ -6,10 +6,15 @@ edition = "2021"
 [workspace]
 resolver = "2"
 members = [ 
-    "leetcode", "sql",
+    "leetcode", "sql", "trace",
 ]
 
 [workspace.dependencies]
-leetcode = { path = "./leetcode" }
-sql = { path = "./sql" }
+leetcode = { path = "leetcode" }
+sql = { path = "sql" }
+trace = { path = "trace" }
+
+# crates.io dependencies
+futures = { version = "0.3" }
+log = { version = "0.4" }
 

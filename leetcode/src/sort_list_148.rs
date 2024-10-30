@@ -34,7 +34,7 @@ mod tests {
     use super::*;
 
     #[test]
-    fn test() {
+    fn test_sort_list() {
         let arr = vec![4, 3, 2, 1];
         let list: crate::ListNode = arr.into();
         assert_eq!(
@@ -43,5 +43,24 @@ mod tests {
                 .unwrap()
                 .to_string()
         );
+    }
+
+    #[test]
+    fn test_split_list() {
+        for (arr, left, right) in [
+            (vec![1, 2, 3, 4], "1->2", "3->4"),
+            (vec![1, 2, 3], "1", "2->3"),
+            (vec![1, 2], "1", "2"),
+            (vec![1], "None", "1"),
+        ] {
+            let list: ListNode = arr.into();
+            let (l, r) = Solution::split_list(Some(Box::new(list)));
+            assert_eq!(right, r.unwrap().to_string());
+            if left == "None" {
+                assert!(l.is_none());
+            } else {
+                assert_eq!(left, l.unwrap().to_string());
+            }
+        }
     }
 }
