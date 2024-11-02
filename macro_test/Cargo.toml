@@ -1,0 +1,18 @@
+[package]
+name = "macro_test"
+version = "0.1.0"
+edition = "2021"
+
+[dependencies]
+syn = "2.0"
+quote = "1.0"
+darling = "0.20.10"
+proc-macro2 = "1.0.89"
+
+
+[lib]
+proc-macro = true
+
+[[test]]
+name = "test"
+path = "tests/macro.rs"

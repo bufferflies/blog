@@ -2,12 +2,14 @@
 #![allow(clippy::all)]
 
 use std::{cell::RefCell, fmt::Display, rc::Rc};
+mod can_jump_55;
 mod daily_temperatures;
 mod delete_middle_2095;
 mod is_symmetric_101;
 mod least_bricks;
 mod longest_ones_1004;
 mod longest_substring;
+mod lru_cache_146;
 mod merge_56;
 mod merge_two_lists_21;
 mod num_islands_200;

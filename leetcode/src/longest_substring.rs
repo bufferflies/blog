@@ -17,6 +17,27 @@ impl Solution {
         }
         max
     }
+
+    pub fn coin_change(coins: Vec<i32>, amount: i32) -> i32 {
+        if amount <= 0 {
+            return 0;
+        }
+        let mut dp = vec![i32::MAX; amount as usize + 1];
+        dp[0] = 0;
+        for i in 0..amount + 1 {
+            let index = i as usize;
+            for val in coins.iter() {
+                if val <= &i {
+                    let offset = index - *val as usize;
+                    if dp[offset] == i32::MAX {
+                        continue;
+                    }
+                    dp[index] = dp[index].min(dp[offset] + 1)
+                }
+            }
+        }
+        dp[amount as usize]
+    }
 }
 
 #[cfg(test)]
@@ -51,5 +72,10 @@ mod tests {
     #[test]
     fn test_4() {
         assert_eq!(Solution::length_of_longest_substring("".to_string()), 0);
+    }
+
+    #[test]
+    fn test_coin_change() {
+        assert_eq!(Solution::coin_change(vec![1, 2, 5], 11), 3);
     }
 }
