@@ -10,7 +10,7 @@ fn main() {
     println!("{:?}", map);
 }
 
-#[derive(macro_test::HelloMacro, macro_test::IntoHashMapDerive)]
+#[derive(derive_macro::HelloMacro, derive_macro::IntoHashMapDerive)]
 struct HelloStruct {
     name: String,
     pub age: i32,

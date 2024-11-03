@@ -6,21 +6,17 @@ edition = "2021"
 [workspace]
 resolver = "2"
 members = [ 
-    "leetcode", "macro_test", "sql", "trace",
+    "leetcode", "derive_macro", "produce_macro", "sql", "trace",
 ]
 
 [workspace.dependencies]
 leetcode = { path = "leetcode", default-features = false }
 sql = { path = "sql" }
 trace = { path = "trace" }
-macro_test = { path="macro_test" }
+derive_macro = { path="derive_macro" }
 # crates.io dependencies
 futures = { version = "0.3" }
 log = { version = "0.4" }
 
 [dependencies]
-macro_test={workspace = true}
-
-
-[package.metadata.clippy]
-warnings = false
+derive_macro={workspace = true}
