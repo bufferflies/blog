@@ -1,6 +1,6 @@
 use std::collections::HashMap;
 
-use macro_test::{HelloMacro, IntoHashMapDerive};
+use derive_macro::{HelloMacro, IntoHashMapDerive};
 
 trait HelloTrait {
     fn hello();
@@ -21,11 +21,4 @@ fn test_derive() {
     };
     let map: HashMap<String, String> = person.into();
     println!("{:?}", map);
-}
-
-#[test]
-fn test_from_vec() {
-    let arr = vec![1, 2, 3];
-    let list: ListNode = arr.into();
-    assert_eq!(list.to_string(), "1->2->3");
 }

@@ -10,7 +10,7 @@ pub(crate) fn derive_custom_model_impl(input: TokenStream) -> TokenStream {
     let original_struct = parse_macro_input!(input as DeriveInput);
 
     // 从输入中解构出 data 和 ident 字段
-    let DeriveInput { data, ident, .. } = original_struct.clone();
+    let DeriveInput { data, .. } = original_struct.clone();
 
     if let Data::Struct(data_struct) = data {
         // 从这个数据结构中提取字段

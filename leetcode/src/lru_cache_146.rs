@@ -1,28 +1,20 @@
 use std::{cell::RefCell, collections::HashMap, rc::Rc};
 
-#[allow(clippy::all)]
-struct LRUCache {
-    capacity: i32,
-    head: Option<Rc<RefCell<Node>>>,
-    tail: Option<Rc<RefCell<Node>>>,
-    dict: HashMap<i32, Rc<RefCell<Node>>>,
-}
-
 struct Node {
     key: i32,
     value: i32,
-    prev: Option<Rc<RefCell<Node>>>,
+    pre: Option<Rc<RefCell<Node>>>,
     next: Option<Rc<RefCell<Node>>>,
 }
 
 impl Node {
-    fn new(key: i32, value: i32) -> Rc<RefCell<Self>> {
-        Rc::new(RefCell::new(Self {
+    pub fn new(key: i32, value: i32) -> Self {
+        Self {
             key,
             value,
-            prev: None,
+            pre: None,
             next: None,
-        }))
+        }
     }
 }
 
@@ -32,64 +24,79 @@ impl PartialEq for Node {
     }
 }
 
-impl Drop for Node {
-    fn drop(&mut self) {
-        self.prev = None;
-        self.next = None;
-        println!("Dropping Node: key={}, value={}", self.key, self.value);
-    }
+struct LRUCache {
+    capacity: i32,
+    head: Option<Rc<RefCell<Node>>>,
+    tail: Option<Rc<RefCell<Node>>>,
+    dict: HashMap<i32, Rc<RefCell<Node>>>,
 }
 
 /// `&self` means the method takes an immutable reference.
 /// If you need a mutable reference, change it to `&mut self` instead.
-#[allow(clippy::all)]
 impl LRUCache {
     fn new(capacity: i32) -> Self {
         let dict = HashMap::with_capacity(capacity as usize);
         Self {
             capacity,
-            head: None,
             dict,
             tail: None,
+            head: None,
         }
     }
 
-    fn move_to_head(&mut self, node: Rc<RefCell<Node>>) {
-        match self.head.as_ref() {
-            Some(head) => {
-                if head == &node {
-                    return;
-                }
-                if self.tail.as_ref() == Some(&node) {
-                    self.tail = node.borrow().prev.clone();
-                }
-                let next = node.borrow().next.clone();
-                let pre = node.borrow().prev.clone();
-                if let Some(ref pre) = pre {
-                    pre.borrow_mut().next = next.clone();
-                }
-                if let Some(ref next) = next {
-                    next.as_ref().borrow_mut().prev = pre.clone();
-                }
+    fn move_node_to_head(&mut self, node: Rc<RefCell<Node>>) {
+        if self.head.as_ref() == Some(&node) {
+            return;
+        }
+        if self.tail.as_ref() == Some(&node) {
+            self.tail = node.borrow_mut().pre.clone();
+        }
 
-                let head = head.clone();
-                node.borrow_mut().next = Some(head.clone());
-                head.borrow_mut().prev = Some(node.clone());
-                self.head = Some(node);
-            }
-            None => {
-                self.head = Some(node.clone());
-                self.tail = Some(node);
-            }
+        let pre = node.borrow().pre.clone();
+        let next = node.borrow().next.clone();
+        if let Some(pre) = &pre {
+            pre.borrow_mut().next = next.clone();
+        }
+        if let Some(next) = &next {
+            next.borrow_mut().pre = pre.clone();
+        }
+
+        node.borrow_mut().next = self.head.clone();
+        if let Some(head) = &self.head {
+            head.borrow_mut().pre = Some(node.clone());
+        }
+        self.head = Some(node);
+    }
+
+    fn push_node_to_head(&mut self, node: Rc<RefCell<Node>>) {
+        if self.tail.is_none() {
+            self.tail = Some(node.clone());
+        }
+        if self.head.is_none() {
+            self.head = Some(node);
+            return;
+        }
+        node.borrow_mut().next = self.head.clone();
+        if let Some(head) = &self.head {
+            head.borrow_mut().pre = Some(node.clone());
+        }
+
+        self.head = Some(node);
+    }
+
+    fn delete_tail(&mut self) {
+        if let Some(tail) = self.tail.as_ref() {
+            self.dict.remove(&tail.borrow().key);
+            let pre = tail.borrow().pre.clone().take();
+            self.tail = pre;
         }
     }
 
     fn get(&mut self, key: i32) -> i32 {
         match self.dict.get(&key) {
             Some(node) => {
-                let node = node.clone();
                 let val = node.borrow().value;
-                self.move_to_head(node);
+                self.move_node_to_head(node.clone());
                 val
             }
             None => -1,
@@ -97,46 +104,18 @@ impl LRUCache {
     }
 
     fn put(&mut self, key: i32, value: i32) {
-        if let Some(node) = self.dict.get(&key) {
-            let node = node.clone();
-            node.borrow_mut().value = value;
-            self.move_to_head(node);
-        } else {
-            let node = Node::new(key, value);
-            self.push_front(node.clone());
-            self.dict.insert(key, node);
-            if self.dict.len() > self.capacity as usize {
-                self.remove_last();
-            }
-        }
-    }
-
-    fn remove_last(&mut self) {
-        match self.tail {
-            Some(ref tail) => {
-                let tail = tail.clone();
-                let pre = tail.borrow().prev.clone().unwrap();
-                pre.borrow_mut().next = None;
-                self.tail = Some(pre);
-                self.dict.remove(&tail.borrow().key);
-            }
-            None => {}
-        }
-    }
-
-    fn push_front(&mut self, node: Rc<RefCell<Node>>) {
-        match self.head {
-            Some(ref head) => {
-                node.borrow_mut().next = Some(head.clone());
-                head.borrow_mut().prev = Some(node.clone());
-                self.head = Some(node.clone());
-                if self.tail.is_none() {
-                    self.tail = Some(node);
-                }
+        match self.dict.get(&key) {
+            Some(node) => {
+                node.borrow_mut().value = value;
+                self.move_node_to_head(node.clone());
             }
             None => {
-                self.head = Some(node.clone());
-                self.tail = Some(node);
+                let node = Rc::new(RefCell::new(Node::new(key, value)));
+                self.dict.insert(key, node.clone());
+                self.push_node_to_head(node);
+                if self.dict.len() > self.capacity as usize {
+                    self.delete_tail();
+                }
             }
         }
     }

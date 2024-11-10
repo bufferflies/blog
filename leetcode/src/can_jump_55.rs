@@ -10,6 +10,16 @@ impl Solution {
         }
         max_right >= nums.len()
     }
+
+    pub fn length_of_last_word(s: String) -> i32 {
+        let ss = s.rsplit(" ");
+        for val in ss {
+            if val.len() != 0 {
+                return val.len() as i32;
+            }
+        }
+        0
+    }
 }
 
 #[cfg(test)]

@@ -1,6 +1,6 @@
 use std::collections::HashMap;
 
-use macro_test::{DeriveCustomModel, IntoHashMapDerive};
+use derive_macro::{DeriveCustomModel, IntoHashMapDerive};
 
 #[derive(DeriveCustomModel)]
 #[custom_model(model(

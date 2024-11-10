@@ -1,7 +1,11 @@
 extern crate proc_macro;
+#[macro_use]
+extern crate proc_macro_error2;
+
 use proc_macro::TokenStream;
 use quote::quote;
 use syn::{self, DeriveInput, parse_macro_input};
+mod attribute;
 mod custom_model;
 
 #[proc_macro_derive(HelloMacro)]
@@ -54,4 +58,13 @@ pub fn into_hashmap_derive(input: TokenStream) -> TokenStream {
 #[proc_macro_derive(DeriveCustomModel, attributes(custom_model))]
 pub fn derive_custom_model(item: TokenStream) -> TokenStream {
     custom_model::derive_custom_model_impl(item)
+}
+
+#[proc_macro_attribute]
+#[proc_macro_error]
+pub fn trace(
+    args: proc_macro::TokenStream,
+    item: proc_macro::TokenStream,
+) -> proc_macro::TokenStream {
+    attribute::trace_impl(args, item)
 }
