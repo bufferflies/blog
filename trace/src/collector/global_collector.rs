@@ -1,13 +1,13 @@
 use std::{
     cell::RefCell,
     rc::Rc,
-    sync::{Mutex, atomic::AtomicUsize, mpsc},
+    sync::{Mutex, mpsc},
     time::Instant,
 };
 
-use super::{Reporter, SpanRecord, config::Config};
+use super::{Reporter, SpanRecord, config::Config, id::next_collect_id};
+use crate::local::raw_span::RawSpan;
 
-static NEXT_COLLECT_ID: AtomicUsize = AtomicUsize::new(0);
 static GLOBAL_COLLECTOR: Mutex<Option<GlobalCollector>> = Mutex::new(None);
 type LocalCollector = Rc<RefCell<Option<mpsc::Sender<CollectCommand>>>>;
 
@@ -22,7 +22,7 @@ thread_local! {
     };
 }
 
-pub fn send_span(cmd: CollectCommand) {
+pub fn send_command(cmd: CollectCommand) {
     COMMAND_SENDER.with(|sender| {
         if let Some(tx) = sender.borrow().as_ref() {
             tx.send(cmd).unwrap();
@@ -39,6 +39,10 @@ pub struct GlobalCollector {
     config: Config,
     rx: mpsc::Receiver<CollectCommand>,
     tx: mpsc::Sender<CollectCommand>,
+}
+
+pub fn set_reporter(reporter: impl Reporter, config: Config) {
+    GlobalCollector::start(Box::new(reporter), config);
 }
 
 impl GlobalCollector {
@@ -86,11 +90,61 @@ impl GlobalCollector {
     }
 }
 
+#[derive(Default, Clone)]
+pub struct GlobalCollect;
+
+impl GlobalCollect {
+    pub fn start_collect(&self) -> usize {
+        let collect_id = next_collect_id();
+        collect_id
+    }
+
+    pub fn send_command(&self, spans: Vec<RawSpan>) {
+        let span_records = spans
+            .into_iter()
+            .map(|span| {
+                let duration_ns = span
+                    .end_instant
+                    .map(|end| end.saturating_duration_since(span.begin_instant).as_nanos() as u64);
+                SpanRecord {
+                    trace_id: 0,
+                    span_id: span.span_id,
+                    parent_id: span.parent_id,
+                    begin_time_unix_ns: span.begin_instant.elapsed().as_nanos() as u64,
+                    duration_ns: duration_ns.unwrap_or_default(),
+                    name: span.name,
+                    properties: span.properties,
+                }
+            })
+            .collect();
+        let cmd = CollectCommand {
+            spans: span_records,
+        };
+        send_command(cmd);
+    }
+}
+
+/// Flushes all pending span records to the reporter immediately.
+pub fn flush() {
+    // Spawns a new thread to ensure the reporter operates outside the tokio runtime
+    // to prevent panic.
+    std::thread::Builder::new()
+        .name("fastrace-flush".to_string())
+        .spawn(move || {
+            if let Some(global_collector) = GLOBAL_COLLECTOR.lock().unwrap().as_mut() {
+                global_collector.handle_commands();
+            }
+        })
+        .unwrap()
+        .join()
+        .unwrap();
+}
+
 #[cfg(test)]
 mod tests {
     use std::thread::sleep;
 
-    use super::send_span;
+    use super::send_command;
     use crate::collector::{config::Config, console_reporter::ConsoleReporter};
 
     #[test]
@@ -108,7 +162,7 @@ mod tests {
                 properties: vec![("key".into(), "value".into())],
             }],
         };
-        send_span(cmd);
+        send_command(cmd);
         sleep(std::time::Duration::from_secs(1));
     }
 }

@@ -6,7 +6,7 @@ pub struct ConsoleReporter {}
 impl Reporter for ConsoleReporter {
     fn report(&mut self, spans: Vec<SpanRecord>) {
         for span in spans {
-            println!("{:?}", span);
+            eprintln!("{:?}", span);
         }
     }
 }
