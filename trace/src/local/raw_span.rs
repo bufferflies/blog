@@ -30,3 +30,18 @@ impl RawSpan {
         self.end_instant.replace(Instant::now());
     }
 }
+
+#[cfg(test)]
+mod tests {
+    #[test]
+    fn test_raw_span() {
+        let mut span = super::RawSpan::start_with(1, 0, "test".into());
+        assert_eq!(span.span_id, 1);
+        assert_eq!(span.parent_id, 0);
+        assert_eq!(span.name, "test");
+        assert_eq!(span.properties.len(), 0);
+        assert!(span.end_instant.is_none());
+        span.end();
+        assert!(span.end_instant.is_some());
+    }
+}

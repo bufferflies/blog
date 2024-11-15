@@ -17,7 +17,7 @@ impl LocalSpan {
             .unwrap_or_default()
     }
 
-    pub fn enter_with_stack(
+    fn enter_with_stack(
         name: impl Into<Cow<'static, str>>,
         stack: Rc<RefCell<LocalSpanStack>>,
     ) -> Self {
@@ -43,4 +43,19 @@ impl Drop for LocalSpan {
 struct LocalSpanInner {
     stack: Rc<RefCell<LocalSpanStack>>,
     span_handle: SpanHandle,
+}
+
+#[cfg(test)]
+mod tests {
+    use crate::local::local_collector::LOCAL_SPAN_STACK;
+
+    #[test]
+    fn test_local_span() {
+        let span = super::LocalSpan::enter_with_local_parent("test");
+        drop(span);
+        LOCAL_SPAN_STACK.with(|stack| {
+            let mut stack = stack.borrow_mut();
+            assert!(stack.current_span_line().is_none());
+        });
+    }
 }

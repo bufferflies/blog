@@ -61,3 +61,21 @@ impl LocalSpanStack {
         span_line.collect()
     }
 }
+
+#[cfg(test)]
+mod tests {
+
+    #[test]
+    fn test_local_span_stack() {
+        let mut stack = super::LocalSpanStack::with_capacity(10);
+        assert!(stack.enter_span("test").is_none());
+        let span_line_handler = stack.register_span_line(None).unwrap();
+        let spans = stack.unregister_and_collect(span_line_handler).unwrap();
+        assert!(spans.is_empty());
+
+        let span_line_handler = stack.register_span_line(None).unwrap();
+        stack.enter_span("test");
+        let spans = stack.unregister_and_collect(span_line_handler).unwrap();
+        assert_eq!(spans.len(), 1);
+    }
+}

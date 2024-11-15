@@ -6,12 +6,12 @@ fn main() {
         let parent = SpanContext::random();
         let root = Span::root("root", parent);
         let _local_parent_guard = root.set_local_parent();
-        let _local_span = LocalSpan::enter_with_local_parent("child");
+        span();
     }
     flush();
 }
 
-#[test]
-fn test_logging() {
-    assert_eq!(3, 1 + 2);
+fn span() {
+    let _local_span = LocalSpan::enter_with_local_parent("child");
+    std::thread::sleep(std::time::Duration::from_secs(1));
 }

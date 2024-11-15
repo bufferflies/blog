@@ -22,7 +22,7 @@ thread_local! {
     };
 }
 
-pub fn send_command(cmd: CollectCommand) {
+fn send_command(cmd: CollectCommand) {
     COMMAND_SENDER.with(|sender| {
         if let Some(tx) = sender.borrow().as_ref() {
             tx.send(cmd).unwrap();

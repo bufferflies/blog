@@ -3,7 +3,6 @@ use std::{borrow::Cow, cell::RefCell, rc::Rc};
 use crate::{
     GlobalCollect, SpanContext,
     collector::SpanId,
-    id::next_span_id,
     local::{
         local_collector::LOCAL_SPAN_STACK,
         local_span_stack::{LocalSpanStack, SpanLineHandle},
@@ -58,14 +57,14 @@ pub struct SpanInner {
 
 impl SpanInner {
     fn capture_local_spans(&self, stack: Rc<RefCell<LocalSpanStack>>) -> LocalParentGuard {
-        let span_line_epoch = {
+        let span_line_handler = {
             let stack = &mut (*stack).borrow_mut();
             stack.register_span_line(Some(self.raw_span.span_id))
         };
 
         let inner = LocalParentGuardInner {
             stack,
-            span_line_handle: span_line_epoch.unwrap_or_default(),
+            span_line_handler: span_line_handler.unwrap_or_default(),
             collect: self.collect.clone(),
         };
         LocalParentGuard { inner: Some(inner) }
@@ -79,7 +78,7 @@ pub struct LocalParentGuard {
 
 struct LocalParentGuardInner {
     stack: Rc<RefCell<LocalSpanStack>>,
-    span_line_handle: SpanLineHandle,
+    span_line_handler: SpanLineHandle,
     collect: GlobalCollect,
 }
 
@@ -95,7 +94,7 @@ impl LocalParentGuard {
     ) -> Self {
         let inner = Some(LocalParentGuardInner {
             stack,
-            span_line_handle,
+            span_line_handler: span_line_handle,
             collect,
         });
         Self { inner }
@@ -106,7 +105,7 @@ impl Drop for LocalParentGuard {
     fn drop(&mut self) {
         if let Some(inner) = self.inner.take() {
             let stack = &mut (*inner.stack).borrow_mut();
-            if let Some(spans) = stack.unregister_and_collect(inner.span_line_handle) {
+            if let Some(spans) = stack.unregister_and_collect(inner.span_line_handler) {
                 inner.collect.send_command(spans);
             }
         }
