@@ -1,17 +1,34 @@
+use crate::types::schema::DataType;
+
+pub type TableName = String;
+pub type ColumnName = String;
+pub type FunctionName = String;
+
 pub enum Statement {
     Select {
         select: Vec<(Expression, Option<String>)>,
         from: Vec<TableName>,
         limit: Option<Expression>,
     },
+    CrateTable {
+        table_name: TableName,
+        columns: Vec<Column>,
+    },
+    DropTable {
+        table_name: TableName,
+        if_exists: bool,
+    },
+    Insert {
+        table_name: TableName,
+        columns: Option<Vec<ColumnName>>,
+        values: Vec<Vec<Expression>>,
+    },
 }
-
-pub type TableName = String;
-pub type FunctionName = String;
 
 #[derive(Clone, Debug, Eq, Hash, PartialEq)]
 pub enum Expression {
     All,
+    Column(Option<TableName>, ColumnName),
     Literal(Literal),
     Operator(Operator),
     /// A function call (name and parameters).
@@ -118,7 +135,18 @@ impl Expression {
             | Self::Operator(Is(expr, _))
             | Self::Operator(Identity(expr)) => expr.walk(visitor),
             Self::Function(_, exprs) => exprs.iter().any(|expr| expr.walk(visitor)),
-            Self::All | Self::Literal(_) => true,
+            Self::All | Self::Column(..) | Self::Literal(_) => true,
         }
     }
+}
+
+/// A CREATE TABLE column definition.
+#[derive(Debug)]
+pub struct Column {
+    pub name: String,
+    pub datatype: DataType,
+    pub primary_key: bool,
+    pub nullable: Option<bool>,
+    pub default: Option<Expression>,
+    pub unique: bool,
 }

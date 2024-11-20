@@ -19,11 +19,11 @@ impl Solution {
 
         let cur = &mut head;
         let mut dummy = ListNode::new(-1);
-        while cur.is_some() {
+        while let Some(mut node) = cur.take() {
             let first = dummy.next.take();
-            let next = cur.as_mut().unwrap().next.take();
-            dummy.next = cur.take();
-            dummy.next.as_mut().unwrap().next = first;
+            let next = node.next.take();
+            node.next = first;
+            dummy.next = Some(node);
             *cur = next;
         }
         dummy.next
@@ -43,7 +43,7 @@ mod tests {
             (vec![1], "1"),
         ] {
             let list: ListNode = arr.into();
-            let result = Solution::reverse_list(Some(Box::new(list)));
+            let result = Solution::reverse_list_2(Some(Box::new(list)));
             assert_eq!(expect, result.unwrap().to_string());
         }
     }

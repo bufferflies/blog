@@ -234,10 +234,36 @@ impl<'a> Lexer<'a> {
 
 #[derive(Debug, Copy, Clone, PartialEq)]
 pub enum Keyword {
+    /// basic logic operators.
     And,
     Not,
     Or,
+
+    /// Data types.
+    Bool,
+    Boolean,
+    Int,
+    Integer,
+    String,
+    Text,
+    Float,
+    Double,
+
+    /// DDL keywords.
+    Primary,
+    Unique,
+    Default,
+    Index,
+    Key,
+
+    /// SQL keywords.
     Select,
+    Insert,
+    Into,
+    Values,
+    Create,
+    Drop,
+    Table,
     From,
     Where,
     Limit,
@@ -265,6 +291,9 @@ impl TryFrom<&str> for Keyword {
             "or" => Self::Or,
             "not" => Self::Not,
             "select" => Self::Select,
+            "create" => Self::Create,
+            "insert" => Self::Insert,
+            "drop" => Self::Drop,
             "from" => Self::From,
             "where" => Self::Where,
             "limit" => Self::Limit,
@@ -274,6 +303,24 @@ impl TryFrom<&str> for Keyword {
             "nan" => Self::Nan,
             "infinity" => Self::Infinity,
             "like" => Self::Like,
+            "table" => Self::Table,
+            "into" => Self::Into,
+            "values" => Self::Values,
+
+            "bool" => Self::Bool,
+            "boolean" => Self::Boolean,
+            "int" => Self::Int,
+            "integer" => Self::Integer,
+            "float" => Self::Float,
+            "double" => Self::Double,
+            "string" => Self::String,
+            "text" => Self::Text,
+
+            "primary" => Self::Primary,
+            "unique" => Self::Unique,
+            "default" => Self::Default,
+            "index" => Self::Index,
+
             _ => return Err("Invalid keyword:"),
         })
     }
@@ -287,6 +334,9 @@ impl std::fmt::Display for Keyword {
             Self::Or => "OR",
             Self::Not => "NOT",
             Self::From => "FROM",
+            Self::Insert => "INSERT",
+            Self::Create => "CREATE",
+            Self::Drop => "DROP",
             Self::Limit => "LIMIT",
             Self::Select => "SELECT",
             Self::Where => "WHERE",
@@ -296,6 +346,21 @@ impl std::fmt::Display for Keyword {
             Self::Nan => "NAN",
             Self::Infinity => "INFINITY",
             Self::Like => "LIKE",
+            Self::Table => "TABLE",
+
+            Self::Bool => "BOOL",
+            Self::Boolean => "BOOLEAN",
+            Self::Int => "INT",
+            Self::Integer => "INTEGER",
+            Self::Float => "FLOAT",
+            Self::Double => "DOUBLE",
+            Self::String => "STRING",
+            Self::Text => "TEXT",
+
+            Self::Primary => "PRIMARY",
+            Self::Unique => "UNIQUE",
+            Self::Default => "DEFAULT",
+            Self::Index => "INDEX",
         })
     }
 }

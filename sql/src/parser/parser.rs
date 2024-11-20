@@ -31,16 +31,6 @@ impl<'a> Parser<'a> {
         Ok(statement)
     }
 
-    fn parse_statement(&mut self) -> Result<ast::Statement> {
-        let Some(token) = self.peek()? else {
-            return Error::InvalidInput("Unexpected end of input".to_string()).into();
-        };
-        match token {
-            Token::Keyword(Keyword::Select) => self.parse_select(),
-            token => Error::InvalidInput(format!("Unexpected end of input:{:?}", token)).into(),
-        }
-    }
-
     fn parse_select(&mut self) -> Result<ast::Statement> {
         let statement = {
             ast::Statement::Select {
@@ -74,7 +64,7 @@ impl<'a> Parser<'a> {
         self.next_ident()
     }
 
-    fn next_ident(&mut self) -> Result<String> {
+    pub fn next_ident(&mut self) -> Result<String> {
         match self.next()? {
             Token::Ident(ident) => Ok(ident),
             token => Error::InvalidInput(format!("Unexpected token:{:?}", token)).into(),
@@ -186,17 +176,28 @@ impl<'a> Parser<'a> {
                 }
                 ast::Expression::Function(function_name, args).into()
             }
+            Token::Ident(table) if self.next_is(Token::Period) => {
+                let column = self.next_ident()?;
+                ast::Expression::Column(Some(table), column)
+            }
+            Token::Ident(column) => ast::Expression::Column(None, column),
+
             Token::Keyword(Keyword::Null) => ast::Literal::Null.into(),
             Token::Keyword(Keyword::True) => ast::Literal::Boolean(true).into(),
             Token::Keyword(Keyword::False) => ast::Literal::Boolean(false).into(),
             Token::Keyword(Keyword::Infinity) => ast::Literal::Float(f64::INFINITY).into(),
             Token::Keyword(Keyword::Nan) => ast::Literal::Float(f64::NAN).into(),
+            Token::OpenParen => {
+                let expr = self.parse_expression()?;
+                self.expect(Token::CloseParen)?;
+                expr
+            }
             token => return errinput!("expected expression atom, found {token}"),
         };
         Ok(token)
     }
 
-    fn expect(&mut self, expect: Token) -> Result<()> {
+    pub fn expect(&mut self, expect: Token) -> Result<()> {
         let token = self.next()?;
         if token != expect {
             return errinput!("expected token {expect}, found {token}");
@@ -204,7 +205,7 @@ impl<'a> Parser<'a> {
         Ok(())
     }
 
-    fn next_is(&mut self, token: Token) -> bool {
+    pub fn next_is(&mut self, token: Token) -> bool {
         self.next_if(|t| *t == token).is_some()
     }
 
@@ -221,14 +222,21 @@ impl<'a> Parser<'a> {
         out
     }
 
-    fn next(&mut self) -> Result<Token> {
+    pub fn next_if_keyword(&mut self) -> Option<Keyword> {
+        self.next_if_map(|token| match token {
+            Token::Keyword(keyword) => Some(*keyword),
+            _ => None,
+        })
+    }
+
+    pub fn next(&mut self) -> Result<Token> {
         self.lexer
             .next()
             .transpose()?
             .ok_or_else(|| errinput!("unexpected end of input"))
     }
 
-    fn peek(&mut self) -> Result<Option<&Token>> {
+    pub fn peek(&mut self) -> Result<Option<&Token>> {
         self.lexer
             .peek()
             .map(|r| r.as_ref().map_err(|err| err.clone()))

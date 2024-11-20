@@ -5,6 +5,7 @@ use std::{cell::RefCell, fmt::Display, rc::Rc};
 mod can_jump_55;
 mod daily_temperatures;
 mod delete_middle_2095;
+mod huawei;
 mod is_symmetric_101;
 mod least_bricks;
 mod longest_ones_1004;
@@ -19,6 +20,7 @@ mod restore_ip_addresses_93;
 mod reverse_list_206;
 mod sort_list_148;
 mod stock_span;
+mod swap_pair_21;
 mod three_num;
 
 pub struct Solution {}
