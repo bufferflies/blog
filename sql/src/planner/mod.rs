@@ -1,3 +1,6 @@
+mod optimizer;
 mod plan;
+mod planner;
 
-pub use plan::Planner;
+pub use plan::{Direction, Node, Plan};
+pub use planner::Planner;

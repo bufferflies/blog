@@ -95,8 +95,7 @@ pub struct GlobalCollect;
 
 impl GlobalCollect {
     pub fn start_collect(&self) -> usize {
-        let collect_id = next_collect_id();
-        collect_id
+        next_collect_id()
     }
 
     pub fn send_command(&self, spans: Vec<RawSpan>) {

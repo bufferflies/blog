@@ -40,9 +40,14 @@ impl<'a> Parser<'a> {
                     .next_is(Keyword::Limit.into())
                     .then(|| self.parse_expression())
                     .transpose()?,
+                r#where: self.parse_where_clause()?,
             }
         };
         Ok(statement)
+    }
+
+    fn parse_where_clause(&mut self) ->Result<Option<ast::Expression>>{
+        todo!("parse where clause")
     }
 
     fn parse_from_clause(&mut self) -> Result<Vec<ast::TableName>> {

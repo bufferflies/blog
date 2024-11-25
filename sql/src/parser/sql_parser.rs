@@ -6,7 +6,7 @@ use super::{
 use crate::{errinput, error::Result, types::schema::DataType};
 
 impl<'a> Parser<'a> {
-    fn parse_statement(&mut self) -> Result<ast::Statement> {
+    pub fn parse_statement(&mut self) -> Result<ast::Statement> {
         let Some(token) = self.peek()? else {
             return errinput!("Unexpected end of input");
         };

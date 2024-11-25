@@ -4,10 +4,13 @@ pub type TableName = String;
 pub type ColumnName = String;
 pub type FunctionName = String;
 
+#[derive(Debug)]
 pub enum Statement {
+    Explain(Box<Statement>),
     Select {
         select: Vec<(Expression, Option<String>)>,
         from: Vec<TableName>,
+        r#where: Option<Expression>,
         limit: Option<Expression>,
     },
     CrateTable {

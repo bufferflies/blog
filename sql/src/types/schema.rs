@@ -1,6 +1,7 @@
 use serde::{Deserialize, Serialize};
 
 use super::value::Value;
+use crate::encoding;
 
 #[derive(Clone, Debug, PartialEq, Deserialize, Serialize)]
 pub struct Table {
@@ -9,12 +10,13 @@ pub struct Table {
     pub columns: Vec<Column>,
 }
 
+impl encoding::Value for Table {}
+
 #[derive(Clone, Debug, PartialEq, Deserialize, Serialize)]
 pub struct Column {
     pub name: String,
     pub data_type: DataType,
-    pub primary_key: bool,
-    pub nullable: Option<bool>,
+    pub nullable: bool,
     pub default: Option<Value>,
     pub unique: bool,
 }

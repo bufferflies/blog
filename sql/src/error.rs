@@ -107,6 +107,12 @@ impl From<std::io::Error> for Error {
     }
 }
 
+impl From<Box<bincode::ErrorKind>> for Error {
+    fn from(err: Box<bincode::ErrorKind>) -> Self {
+        Error::InvalidData(err.to_string())
+    }
+}
+
 impl From<std::num::ParseFloatError> for Error {
     fn from(err: std::num::ParseFloatError) -> Self {
         Error::InvalidInput(err.to_string())

@@ -35,7 +35,7 @@ impl SpanLine {
         self.next_parent_span_id = Some(span_id);
         let handle = self.span_queue.len();
         self.span_queue.push(span);
-        return Some(handle);
+        Some(handle)
     }
 
     pub fn end_span(&mut self, handle: SpanHandle) {

@@ -347,6 +347,9 @@ impl std::fmt::Display for Keyword {
             Self::Infinity => "INFINITY",
             Self::Like => "LIKE",
             Self::Table => "TABLE",
+            Self::Into => "INTO",
+            Self::Values => "VALUES",
+            Self::Key => "KEY",
 
             Self::Bool => "BOOL",
             Self::Boolean => "BOOLEAN",

@@ -67,7 +67,7 @@ impl<T: std::future::Future> std::future::Future for TrackedFuture<T> {
         let this = self.project();
 
         let _guard = this.trace_id.as_ref().map(|trace_id| {
-            LOCAL_SPAN_STACK.try_with(|stack| stack.borrow_mut().set_trace_id(trace_id.clone()))
+            LOCAL_SPAN_STACK.try_with(|stack| stack.borrow_mut().set_trace_id(*trace_id))
         });
         #[cfg(test)]
         log::info!("poll once");

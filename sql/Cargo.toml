@@ -4,11 +4,17 @@ version = "0.1.0"
 edition = "2021"
 
 [dependencies]
+bincode = "1.3.3"
 serde = {version="1.0.200",features = ["derive"] }
 serde_bytes = "0.11.14"
 regex = "1.10.4"
+log = { workspace = true }
+fs4 = "0.8.2"
+itertools = "0.13.0"
+dyn-clone = "1.0.17"
 
 [dev-dependencies]
 serde_json = "1.0.117"
 goldenscript = "0.7.0"
 test_each_file = "0.3.2"
+tempfile = "3.10.1"
