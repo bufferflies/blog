@@ -49,8 +49,7 @@ pub struct Transaction<E: storage::Engine + 'static> {
 
 impl<E: storage::Engine> Catalog for Transaction<E> {
     fn create_table(&self, table: Table) -> Result<()> {
-        log::error!("create table {:?}", table);
-        println!("create table {:?}", table);
+        log::info!("create table {:?}", table);
         if self.get_table(&table.name)?.is_some() {
             return errinput!("table {} already exists", table.name);
         }
@@ -97,10 +96,8 @@ impl<E: storage::Engine> super::Transaction for Transaction<E> {
         for mut row in rows {
             row.iter_mut().for_each(|v| v.normalize());
             let id = &row[table.primary_key];
-            self.txn.set(
-                &Key::Row((&table.name).into(), id.into()).encode(),
-                row.encode(),
-            )?;
+            let key = Key::Row((&table.name).into(), id.into()).encode();
+            self.txn.set(&key, row.encode())?;
 
             // todo: update secondary indexes
         }
@@ -114,9 +111,10 @@ impl<E: storage::Engine> super::Transaction for Transaction<E> {
     }
 
     fn scan(&self, table: &str, filter: Option<Expression>) -> Result<Rows> {
+        let key = KeyPrefix::Row(table.into()).encode();
         let rows = self
             .txn
-            .scan_prefix(&KeyPrefix::Row(table.into()).encode())
+            .scan_prefix(&key)
             .map(|result| result.and_then(|(_, value)| Row::decode(&value)));
         let Some(filter) = filter else {
             return Ok(Box::new(rows));
@@ -144,7 +142,7 @@ pub enum Key<'a> {
     Row(Cow<'a, str>, Cow<'a, Value>),
 }
 
-impl<'a> encoding::Value for Key<'a> {}
+impl<'a> encoding::Key<'a> for Key<'a> {}
 
 /// Key prefixes, allowing prefix scans of specific parts of the keyspace. These
 /// must match the keys -- in particular, the enum variant indexes must match.

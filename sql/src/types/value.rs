@@ -7,7 +7,7 @@ use super::schema::DataType;
 use crate::{
     encoding, errdata, errinput,
     error::{Error, Result},
-    parser::ast::{self, TableName},
+    parser::ast::{self, ColumnName, TableName},
 };
 
 #[derive(Clone, Debug, Serialize, Deserialize)]
@@ -370,7 +370,7 @@ pub enum Label {
     /// an unqualified column name
     Unqualified(String),
     /// a fully qualified table/column name
-    Qualified(TableName, String),
+    Qualified(TableName, ColumnName),
 }
 
 impl std::fmt::Display for Label {

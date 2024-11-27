@@ -220,14 +220,13 @@ impl encoding::Value for TransactionState {}
 
 impl TransactionState {
     pub fn is_visible(&self, version: Version) -> bool {
-        // if self.active.get(&version).is_some() {
-        //     false
-        // } else if self.read_only {
-        //     version < self.version
-        // } else {
-        //     version <= self.version
-        // }
-        true
+        if self.active.get(&version).is_some() {
+            false
+        } else if self.read_only {
+            version < self.version
+        } else {
+            version <= self.version
+        }
     }
 }
 

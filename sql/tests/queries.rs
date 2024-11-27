@@ -13,9 +13,8 @@ mod tests {
     test_each_path! { in "sql/tests/testscripts/queries" as math_expressions => test_goldenscript }
 
     fn test_goldenscript(path: &std::path::Path) {
-        let tempdir = tempfile::TempDir::with_prefix("db").expect("tempdir creation failed");
-        let bitcask =
-            BitCask::new(tempdir.path().join("bitcask")).expect("bitcask creation failed");
+        let tempdir = tempfile::TempDir::with_prefix("db").expect("tempdir create failed");
+        let bitcask = BitCask::new(tempdir.path().join("bitcask")).expect("bitcask init failed");
         let engine = Local::new(bitcask);
         let mut runner = SQLRunner::new(&engine);
         goldenscript::run(&mut runner, path).expect("goldenscript failed");
@@ -64,7 +63,7 @@ mod tests {
                         writeln!(output, "{}", columns.into_iter().join(", "))?;
                     }
                     for row in rows {
-                        writeln!(output, "row: {row:?}")?;
+                        writeln!(output, "{}", row.into_iter().join(", "))?;
                     }
                 }
                 result if tags.remove("result") => writeln!(output, "{result:?}")?,

@@ -55,7 +55,6 @@ impl Engine for BitCask {
     }
 
     fn set(&mut self, key: &[u8], value: Vec<u8>) -> Result<()> {
-        println!("set key: {:?}, value: {:?}", key, value);
         let (pos, len) = self.log.write_entry(key, Some(&*value))?;
         let value_len = value.len() as u32;
         self.keydir.insert(
@@ -66,7 +65,6 @@ impl Engine for BitCask {
     }
 
     fn scan(&mut self, range: impl std::ops::RangeBounds<Vec<u8>>) -> Self::ScanIterator<'_> {
-        println!("scan range: {:?}", range.start_bound());
         ScanIterator {
             inner: self.keydir.range(range),
             log: &mut self.log,

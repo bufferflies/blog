@@ -1,15 +1,15 @@
-use std::collections::HashMap;
+use std::collections::{HashMap, HashSet};
 
 use super::plan::{Node, Plan};
 use crate::{
     engine::Catalog,
     errinput,
     error::Result,
-    parser::ast::{self},
+    parser::ast::{self, ColumnName, TableName},
     types::{
         expression::Expression,
         schema::{Column, Table},
-        value::Value,
+        value::{Label, Value},
     },
 };
 
@@ -52,8 +52,9 @@ impl<'a, C: Catalog> Planner<'a, C> {
         r#where: Option<ast::Expression>,
         limit: Option<ast::Expression>,
     ) -> Result<Plan> {
+        let mut scope = Scope::new();
         let mut node = if !from.is_empty() {
-            self.build_from_clause(from)?
+            self.build_from_clause(from, &mut scope)?
         } else {
             Node::Values { rows: vec![vec![]] }
         };
@@ -75,7 +76,7 @@ impl<'a, C: Catalog> Planner<'a, C> {
         }
 
         if let Some(r#where) = r#where {
-            let predicate = Self::build_expression(r#where)?;
+            let predicate = Self::build_expression(r#where, &scope)?;
             node = Node::Filter {
                 source: Box::new(node),
                 predicate,
@@ -98,8 +99,9 @@ impl<'a, C: Catalog> Planner<'a, C> {
         Ok(Plan::Select(node))
     }
 
-    fn build_from_clause(&self, from: Vec<String>) -> Result<Node> {
+    fn build_from_clause(&self, from: Vec<String>, scope: &mut Scope) -> Result<Node> {
         let table = self.catalog.get_table(&from[0])?.unwrap();
+        scope.add_table(&table, None)?;
         Ok(Node::Scan {
             table,
             filter: None,
@@ -125,12 +127,13 @@ impl<'a, C: Catalog> Planner<'a, C> {
                 };
             }
         }
+        let scope = Scope::new();
         let values = values
             .into_iter()
             .map(|exprs| {
                 exprs
                     .into_iter()
-                    .map(|expr| Self::build_expression(expr))
+                    .map(|expr| Self::build_expression(expr, &scope))
                     .collect()
             })
             .collect::<Result<_>>()?;
@@ -176,13 +179,13 @@ impl<'a, C: Catalog> Planner<'a, C> {
     }
 
     fn evaluate_constant(expr: ast::Expression) -> Result<Value> {
-        Self::build_expression(expr)?.evaluate(None)
+        Self::build_expression(expr, &Scope::new())?.evaluate(None)
     }
 
-    pub fn build_expression(expr: ast::Expression) -> Result<Expression> {
+    pub fn build_expression(expr: ast::Expression, scope: &Scope) -> Result<Expression> {
         use Expression::*;
         let build_fn = |expr: Box<ast::Expression>| -> Result<Box<Expression>> {
-            Ok(Box::new(Self::build_expression(*expr)?))
+            Ok(Box::new(Self::build_expression(*expr, scope)?))
         };
         let ret = match expr {
             ast::Expression::Literal(lit) => Constant(match lit {
@@ -192,6 +195,9 @@ impl<'a, C: Catalog> Planner<'a, C> {
                 ast::Literal::Float(f) => Value::Float(f),
                 ast::Literal::String(s) => Value::String(s),
             }),
+            ast::Expression::Column(table_name, column_name) => {
+                Column(scope.lookup_column(table_name.as_deref(), column_name.as_str())?)
+            }
             ast::Expression::Function(function_name, mut expression) => {
                 match (function_name.as_str(), expression.len()) {
                     ("sqrt", 1) => SquareRoot(build_fn(Box::new(expression.remove(0)))?),
@@ -235,5 +241,88 @@ impl<'a, C: Catalog> Planner<'a, C> {
             e => return errinput!("unsupported expression:{e:?}"),
         };
         Ok(ret)
+    }
+}
+
+pub struct Scope {
+    columns: Vec<Label>,
+    tables: HashSet<String>,
+    /// <table_name, column_name> --> column_index
+    qualified: HashMap<(TableName, ColumnName), usize>,
+
+    /// table_name.column_nam --> column_index
+    unqualified: HashMap<String, Vec<usize>>,
+}
+
+impl Scope {
+    pub fn new() -> Self {
+        Self {
+            columns: Vec::new(),
+            tables: HashSet::new(),
+            qualified: HashMap::new(),
+            unqualified: HashMap::new(),
+        }
+    }
+
+    fn from_table(table: &Table) -> Result<Self> {
+        let mut scope = Self::new();
+        scope.add_table(table, None)?;
+        Ok(scope)
+    }
+
+    fn add_table(&mut self, table: &Table, alias: Option<&str>) -> Result<()> {
+        let table_name = alias.unwrap_or(&table.name);
+        if self.tables.contains(table_name) {
+            return errinput!("duplicate table:{table_name}");
+        }
+        for column in &table.columns {
+            self.add_column(Label::Qualified(
+                table_name.to_string(),
+                column.name.clone(),
+            ));
+        }
+        self.tables.insert(table_name.to_string());
+        Ok(())
+    }
+
+    fn add_column(&mut self, label: Label) -> usize {
+        let index = self.columns.len();
+        if let Label::Qualified(table, column) = &label {
+            self.qualified
+                .insert((table.clone(), column.clone()), index);
+        }
+        if let Label::Qualified(_, column) | Label::Unqualified(column) = &label {
+            self.unqualified
+                .entry(column.clone())
+                .or_default()
+                .push(index)
+        }
+        self.columns.push(label);
+        index
+    }
+
+    fn lookup_column(&self, table: Option<&str>, name: &str) -> Result<usize> {
+        let fmtname = || {
+            table
+                .map(|table| format!("{table}.{name}"))
+                .unwrap_or(name.to_string())
+        };
+        if self.columns.is_empty() {
+            return errinput!("expression must be constant, found column {}", fmtname());
+        }
+        if let Some(table) = table {
+            if !self.tables.contains(table) {
+                return errinput!("unknown table:{table}");
+            }
+            if let Some(index) = self.qualified.get(&(table.to_string(), name.to_string())) {
+                return Ok(*index);
+            }
+        } else if let Some(indexes) = self.unqualified.get(name) {
+            if indexes.len() > 1 {
+                return errinput!("ambiguous column:{name}");
+            }
+            return Ok(indexes[0]);
+        }
+        errinput!("unknown column:{}", fmtname())
     }
 }

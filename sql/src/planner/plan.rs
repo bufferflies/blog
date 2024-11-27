@@ -1,4 +1,4 @@
-use std::{cmp::Ordering, collections::HashMap};
+use std::collections::HashMap;
 
 use itertools::Itertools as _;
 use serde::{Deserialize, Serialize};
