@@ -58,7 +58,7 @@ impl<'a, C: Catalog> Planner<'a, C> {
             Node::Values { rows: vec![vec![]] }
         };
         if select.contains(&(ast::Expression::All, None)) {
-            if node.columns() > 0 {
+            if node.columns() == 0 {
                 return errinput!("no columns in the table");
             }
             if select.len() > 1 {
@@ -82,9 +82,7 @@ impl<'a, C: Catalog> Planner<'a, C> {
             }
         }
 
-        if select.as_slice()!=[(ast::Expression::All,None)]{
-            
-        }
+        if select.as_slice() != [(ast::Expression::All, None)] {}
 
         if let Some(limit) = limit {
             let limit = match Self::evaluate_constant(limit)? {

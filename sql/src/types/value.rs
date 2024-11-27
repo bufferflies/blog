@@ -3,6 +3,7 @@ use std::borrow::Cow;
 use dyn_clone::DynClone;
 use serde::{Deserialize, Serialize};
 
+use super::schema::DataType;
 use crate::{
     encoding, errdata, errinput,
     error::{Error, Result},
@@ -38,6 +39,7 @@ impl std::cmp::Eq for Value {}
 impl Ord for Value {
     fn cmp(&self, other: &Self) -> std::cmp::Ordering {
         use std::cmp::Ordering::*;
+
         use Value::*;
         match (self, other) {
             (Null, Null) => Equal,
@@ -86,6 +88,16 @@ impl Value {
     // Returns true if the value is normalized.
     pub fn is_normalized(&self) -> bool {
         matches!(self.normalize_ref(), Cow::Borrowed(_))
+    }
+
+    pub fn data_type(&self) -> Option<DataType> {
+        match self {
+            Self::Null => None,
+            Self::Boolean(_) => Some(DataType::Boolean),
+            Self::Integer(_) => Some(DataType::Integer),
+            Self::Float(_) => Some(DataType::Float),
+            Self::String(_) => Some(DataType::String),
+        }
     }
 }
 
@@ -351,7 +363,7 @@ pub trait RowIterator: Iterator<Item = Result<Row>> + DynClone {}
 impl<I: Iterator<Item = Result<Row>> + DynClone> RowIterator for I {}
 dyn_clone::clone_trait_object!(RowIterator);
 
-#[derive(Debug,Clone,PartialEq,Serialize, Deserialize)]
+#[derive(Debug, Clone, PartialEq, Serialize, Deserialize)]
 pub enum Label {
     /// no label
     None,
@@ -359,6 +371,16 @@ pub enum Label {
     Unqualified(String),
     /// a fully qualified table/column name
     Qualified(TableName, String),
+}
+
+impl std::fmt::Display for Label {
+    fn fmt(&self, f: &mut std::fmt::Formatter<'_>) -> std::fmt::Result {
+        match self {
+            Label::None => f.write_str(""),
+            Label::Unqualified(name) => f.write_str(name),
+            Label::Qualified(table_name, name) => write!(f, "{table_name}.{name}"),
+        }
+    }
 }
 
 impl From<Option<String>> for Label {

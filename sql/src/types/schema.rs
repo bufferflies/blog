@@ -1,3 +1,5 @@
+use std::fmt::write;
+
 use serde::{Deserialize, Serialize};
 
 use super::value::Value;
@@ -27,4 +29,15 @@ pub enum DataType {
     Integer,
     Float,
     String,
+}
+
+impl std::fmt::Display for DataType {
+    fn fmt(&self, f: &mut std::fmt::Formatter<'_>) -> std::fmt::Result {
+        match self {
+            Self::Boolean => write!(f, "BOOLEAN"),
+            Self::Integer => write!(f, "INTEGER"),
+            Self::Float => write!(f, "FLOAT"),
+            Self::String => write!(f, "STRING"),
+        }
+    }
 }

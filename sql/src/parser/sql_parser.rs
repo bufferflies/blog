@@ -1,6 +1,6 @@
 use super::{
     Parser,
-    ast::{self, Column},
+    ast::{self, Column, TableName},
     lexer::{Keyword, Token},
 };
 use crate::{errinput, error::Result, types::schema::DataType};
@@ -12,11 +12,66 @@ impl<'a> Parser<'a> {
         };
         match token {
             Token::Keyword(Keyword::Create) => self.parse_create_table(),
-
-            // Token::Keyword(Keyword::Select) => self.parse_select(),
+            Token::Keyword(Keyword::Select) => self.parse_select(),
             Token::Keyword(Keyword::Insert) => self.parse_insert(),
-            token => errinput!("Unexpected end of input:{token:?}"),
+            token => errinput!("parse statement met unexpected end of input:{token:?}"),
         }
+    }
+
+    fn parse_select(&mut self) -> Result<ast::Statement> {
+        Ok(ast::Statement::Select {
+            select: self.parse_select_clause()?,
+            from: self.parse_from_clause()?,
+            r#where: self.parse_where_clause()?,
+            limit: self
+                .next_is(Keyword::Limit.into())
+                .then(|| self.parse_expression())
+                .transpose()?,
+        })
+    }
+
+    fn parse_where_clause(&mut self) -> Result<Option<ast::Expression>> {
+        if !self.next_is(Keyword::Where.into()) {
+            return Ok(None);
+        }
+        Ok(Some(self.parse_expression()?))
+    }
+
+    fn parse_from_clause(&mut self) -> Result<Vec<TableName>> {
+        if !self.next_is(Keyword::From.into()) {
+            return Ok(Vec::new());
+        }
+        let mut from = Vec::new();
+        loop {
+            let item = self.next_ident()?;
+            from.push(item);
+            if !self.next_is(Token::Comma) {
+                break;
+            }
+        }
+        Ok(from)
+    }
+
+    fn parse_select_clause(&mut self) -> Result<Vec<(ast::Expression, Option<String>)>> {
+        if !self.next_is(Keyword::Select.into()) {
+            return Ok(Vec::new());
+        }
+        let mut select = vec![];
+        loop {
+            let expr = self.parse_expression()?;
+            let mut label = None;
+            if matches!(self.peek()?, Some(Token::Ident(_))) {
+                if expr == ast::Expression::All {
+                    return errinput!("Cannot select all and a column");
+                }
+                label = Some(self.next_ident()?);
+            }
+            select.push((expr, label));
+            if !self.next_is(Token::Comma) {
+                break;
+            }
+        }
+        Ok(select)
     }
 
     fn parse_insert(&mut self) -> Result<ast::Statement> {
@@ -65,6 +120,7 @@ impl<'a> Parser<'a> {
         self.expect(Keyword::Create.into())?;
         self.expect(Keyword::Table.into())?;
         let table_name = self.next_ident()?;
+        self.expect(Token::OpenParen)?;
         let mut columns = Vec::new();
         loop {
             let column = self.parse_column()?;
@@ -73,6 +129,7 @@ impl<'a> Parser<'a> {
                 break;
             }
         }
+        self.expect(Token::CloseParen)?;
         Ok(ast::Statement::CrateTable {
             table_name,
             columns,
@@ -86,7 +143,7 @@ impl<'a> Parser<'a> {
             Token::Keyword(Keyword::Int | Keyword::Integer) => DataType::Integer,
             Token::Keyword(Keyword::Float | Keyword::Double) => DataType::Float,
             Token::Keyword(Keyword::String) => DataType::String,
-            token => return errinput!("Unexpected token:{token:?}"),
+            token => return errinput!("parse column met unexpected token:{token:?}"),
         };
         let mut column = Column {
             name: column_name,
@@ -100,7 +157,7 @@ impl<'a> Parser<'a> {
             match keyword {
                 Keyword::Primary => {
                     self.expect(Keyword::Key.into())?;
-                    column.primary_key = false;
+                    column.primary_key = true;
                 }
                 Keyword::Null => {
                     if column.nullable.is_some() {

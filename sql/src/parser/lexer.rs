@@ -1,6 +1,9 @@
 use std::fmt::Display;
 
-use crate::error::{Error, Result};
+use crate::{
+    errinput,
+    error::{Error, Result},
+};
 
 pub struct Lexer<'a> {
     chars: std::iter::Peekable<std::str::Chars<'a>>,
@@ -317,11 +320,12 @@ impl TryFrom<&str> for Keyword {
             "text" => Self::Text,
 
             "primary" => Self::Primary,
+            "key" => Self::Key,
             "unique" => Self::Unique,
             "default" => Self::Default,
             "index" => Self::Index,
 
-            _ => return Err("Invalid keyword:"),
+            _ => return Err("cannot convert to keyword"),
         })
     }
 }

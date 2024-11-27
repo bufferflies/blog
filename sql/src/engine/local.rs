@@ -4,10 +4,14 @@ use serde::{Deserialize, Serialize};
 
 use super::Catalog;
 use crate::{
-    encoding::{self, Key as _, Value as _},
+    encoding::{self, Key as _, Value as _, keycode},
     errinput,
     error::Result,
-    storage::{self, mvcc},
+    storage::{
+        self,
+        engine::ScanIterator,
+        mvcc::{self},
+    },
     types::{
         expression::Expression,
         schema::Table,
@@ -45,6 +49,8 @@ pub struct Transaction<E: storage::Engine + 'static> {
 
 impl<E: storage::Engine> Catalog for Transaction<E> {
     fn create_table(&self, table: Table) -> Result<()> {
+        log::error!("create table {:?}", table);
+        println!("create table {:?}", table);
         if self.get_table(&table.name)?.is_some() {
             return errinput!("table {} already exists", table.name);
         }
@@ -60,7 +66,7 @@ impl<E: storage::Engine> Catalog for Transaction<E> {
     }
 
     fn list_tables(&self) -> Result<Vec<Table>> {
-        todo!()
+        errinput!("list_tables not implemented")
     }
 }
 
@@ -73,7 +79,7 @@ impl<E: storage::Engine> Transaction<E> {
     /// the key must already be normalized.
     fn get_row(&self, _table: &str, id: &Value) -> Result<Option<Row>> {
         debug_assert!(id.is_normalized(), "value not normalized");
-        todo!()
+        errinput!("get_row not implemented")
     }
 }
 
@@ -96,7 +102,7 @@ impl<E: storage::Engine> super::Transaction for Transaction<E> {
                 row.encode(),
             )?;
 
-            // todd: update secondary indexes
+            // todo: update secondary indexes
         }
         Ok(())
     }
@@ -107,8 +113,24 @@ impl<E: storage::Engine> super::Transaction for Transaction<E> {
             .collect()
     }
 
-    fn scan(&self, _table: &str, _filter: Option<Expression>) -> Result<Rows> {
-        todo!()
+    fn scan(&self, table: &str, filter: Option<Expression>) -> Result<Rows> {
+        let rows = self
+            .txn
+            .scan_prefix(&KeyPrefix::Row(table.into()).encode())
+            .map(|result| result.and_then(|(_, value)| Row::decode(&value)));
+        let Some(filter) = filter else {
+            return Ok(Box::new(rows));
+        };
+        let rows = rows.filter_map(move |result| {
+            result
+                .and_then(|row| match filter.evaluate(Some(&row))? {
+                    Value::Boolean(true) => Ok(Some(row)),
+                    Value::Boolean(false) | Value::Null => Ok(None),
+                    value => errinput!("filter returned {value}, expected boolean"),
+                })
+                .transpose()
+        });
+        Ok(Box::new(rows))
     }
 }
 
@@ -123,3 +145,17 @@ pub enum Key<'a> {
 }
 
 impl<'a> encoding::Value for Key<'a> {}
+
+/// Key prefixes, allowing prefix scans of specific parts of the keyspace. These
+/// must match the keys -- in particular, the enum variant indexes must match.
+#[derive(Deserialize, Serialize)]
+enum KeyPrefix<'a> {
+    /// All table schemas.
+    Table,
+    /// An entire table index, by table and index name.
+    Index(Cow<'a, str>, Cow<'a, str>),
+    /// An entire table's rows, by table name.
+    Row(Cow<'a, str>),
+}
+
+impl<'a> encoding::Key<'a> for KeyPrefix<'a> {}

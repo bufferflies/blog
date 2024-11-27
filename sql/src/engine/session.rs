@@ -64,6 +64,7 @@ impl<'a, E: Engine<'a>> Drop for Session<'a, E> {
     }
 }
 
+#[derive(Debug)]
 pub enum StatementResult {
     Explain(Plan),
     CreateTable { name: String },

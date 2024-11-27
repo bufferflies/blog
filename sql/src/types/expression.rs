@@ -1,11 +1,13 @@
 use serde::{Deserialize, Serialize};
 
 use super::value::{Row, Value};
-use crate::{errinput, error::Result};
+use crate::{errinput, error::Result, planner::Node, types::value::Label};
 
 #[derive(Clone, Debug, PartialEq, Serialize, Deserialize)]
 pub enum Expression {
     Constant(Value),
+    Column(usize),
+
     And(Box<Expression>, Box<Expression>),
     Or(Box<Expression>, Box<Expression>),
     Not(Box<Expression>),
@@ -36,6 +38,8 @@ pub enum Expression {
     SquareRoot(Box<Expression>),
 
     Like(Box<Expression>, Box<Expression>),
+
+    Is(Box<Expression>, Value),
 }
 
 impl Expression {
@@ -44,6 +48,12 @@ impl Expression {
 
         Ok(match self {
             Self::Constant(value) => value.clone(),
+            Self::Column(index) => match row {
+                Some(row) => row.get(*index).cloned().expect("short row").clone(),
+                None => {
+                    return errinput!("can't reference column {index} with constant evaluation");
+                }
+            },
             Self::Equal(lhs, rhs) => lhs.evaluate(row)?.checked_eq(&rhs.evaluate(row)?)?,
             Self::GreaterThan(lhs, rhs) => lhs.evaluate(row)?.checked_gt(&rhs.evaluate(row)?)?,
             Self::LessThan(lhs, rhs) => lhs.evaluate(row)?.checked_lt(&rhs.evaluate(row)?)?,
@@ -96,6 +106,72 @@ impl Expression {
                 (String(_), Null) | (Null, String(_)) | (Null, Null) => Null,
                 (lhs, rhs) => return errinput!("can't LIKE {lhs} and {rhs}"),
             },
+
+            Self::Is(expr, Null) => Boolean(expr.evaluate(row)? == Null),
+            Self::Is(expr, Float(f)) if f.is_nan() => match expr.evaluate(row)? {
+                Float(f) => Boolean(f.is_nan()),
+                Null => Null,
+                v => return errinput!("IS NAN can't be used with {}", v.data_type().unwrap()),
+            },
+            Self::Is(_, v) => panic!("invalid IS value {v}"),
         })
+    }
+
+    pub fn format(&self, node: &Node) -> String {
+        use Expression::*;
+
+        fn precedence(expr: &Expression) -> u8 {
+            match expr {
+                Column(_) | Constant(_) | SquareRoot(_) => 11,
+                Identity(_) | Negate(_) => 10,
+                &Exponential(..) => 8,
+                Multiply(..) | Divide(..) | Remainder(..) => 7,
+                Add(..) | Subtract(..) => 6,
+                GreaterThan(..) | LessThan(..) => 5,
+                Equal(..) | Like(..) | Is(..) => 4,
+                Not(_) => 3,
+                And(..) => 2,
+                Or(..) => 1,
+            }
+        }
+
+        let format = |expr: &Expression| {
+            let mut string = expr.format(node);
+            if precedence(expr) < precedence(self) {
+                string = format!("({string})");
+            }
+            string
+        };
+
+        match self {
+            Constant(value) => format!("{value}"),
+            Column(index) => match node.column_label(*index) {
+                Label::None => format!("#{index}"),
+                label => format!("{label}"),
+            },
+
+            And(lhs, rhs) => format!("{} AND {}", format(lhs), format(rhs)),
+            Or(lhs, rhs) => format!("{} OR {}", format(lhs), format(rhs)),
+            Not(expr) => format!("NOT {}", format(expr)),
+
+            Equal(lhs, rhs) => format!("{} = {}", format(lhs), format(rhs)),
+            GreaterThan(lhs, rhs) => format!("{} > {}", format(lhs), format(rhs)),
+            LessThan(lhs, rhs) => format!("{} < {}", format(lhs), format(rhs)),
+            Is(expr, Value::Null) => format!("{} IS NULL", format(expr)),
+            Is(expr, Value::Float(f)) if f.is_nan() => format!("{} IS NAN", format(expr)),
+            Is(_, v) => panic!("unexpected IS value {v}"),
+
+            Add(lhs, rhs) => format!("{} + {}", format(lhs), format(rhs)),
+            Divide(lhs, rhs) => format!("{} / {}", format(lhs), format(rhs)),
+            Exponential(lhs, rhs) => format!("{} ^ {}", format(lhs), format(rhs)),
+            Identity(expr) => format(expr),
+            Multiply(lhs, rhs) => format!("{} * {}", format(lhs), format(rhs)),
+            Negate(expr) => format!("-{}", format(expr)),
+            Remainder(lhs, rhs) => format!("{} % {}", format(lhs), format(rhs)),
+            SquareRoot(expr) => format!("sqrt({})", format(expr)),
+            Subtract(lhs, rhs) => format!("{} - {}", format(lhs), format(rhs)),
+
+            Like(lhs, rhs) => format!("{} LIKE {}", format(lhs), format(rhs)),
+        }
     }
 }

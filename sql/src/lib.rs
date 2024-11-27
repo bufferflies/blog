@@ -1,5 +1,5 @@
 mod encoding;
-mod engine;
+pub mod engine;
 mod error;
 mod execution;
 mod parser;

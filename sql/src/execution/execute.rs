@@ -32,7 +32,6 @@ pub fn execute_plan(
             let rows = execute(root, txn)?;
             ExecutionResult::Select { rows, columns }
         }
-        _ => errinput!("unsupported plan"),
     })
 }
 
@@ -43,7 +42,7 @@ pub fn execute(node: Node, txn: &impl Transaction) -> Result<Rows> {
             transform::filter(source, predicate)
         }
         Node::Offset { source, offset } => {
-            let mut source = execute(*source, txn)?;
+            let source = execute(*source, txn)?;
             transform::offset(source, offset)
         }
         Node::Order {
@@ -58,9 +57,9 @@ pub fn execute(node: Node, txn: &impl Transaction) -> Result<Rows> {
             transform::limit(source, limit)
         }
         Node::Values { rows } => source::values(rows),
+        Node::Scan { table, filter } => source::scan(txn, table, filter)?,
         _ => {
-            log::error!("unsupported node:{node:?}");
-            todo!()
+            return errinput!("not support this node:{node:?}");
         }
     })
 }

@@ -23,73 +23,21 @@ impl<'a> Parser<'a> {
     pub fn parse(&mut self) -> Result<ast::Statement> {
         let statement = self.parse_statement()?;
         if self.next_is(Token::Semicolon) {
-            return Error::InvalidInput("Unexpected end of input".to_string()).into();
+            return errinput!("parse met unexpected end of input: ;");
         }
         if let Some(token) = self.lexer.next().transpose()? {
-            return Error::InvalidInput(format!("Unexpected end of input:{:?}", token)).into();
+            return errinput!("parse met end of input:{token:?}");
         }
         Ok(statement)
-    }
-
-    fn parse_select(&mut self) -> Result<ast::Statement> {
-        let statement = {
-            ast::Statement::Select {
-                select: self.parse_select_clause()?,
-                from: self.parse_from_clause()?,
-                limit: self
-                    .next_is(Keyword::Limit.into())
-                    .then(|| self.parse_expression())
-                    .transpose()?,
-                r#where: self.parse_where_clause()?,
-            }
-        };
-        Ok(statement)
-    }
-
-    fn parse_where_clause(&mut self) ->Result<Option<ast::Expression>>{
-        todo!("parse where clause")
-    }
-
-    fn parse_from_clause(&mut self) -> Result<Vec<ast::TableName>> {
-        if !self.next_is(Keyword::From.into()) {
-            return Ok(Vec::new());
-        }
-        let mut tables = Vec::new();
-        loop {
-            let table = self.parse_from_table()?;
-            tables.push(table);
-            if !self.next_is(Token::Comma) {
-                break;
-            }
-        }
-        Ok(tables)
-    }
-
-    fn parse_from_table(&mut self) -> Result<ast::TableName> {
-        self.next_ident()
     }
 
     pub fn next_ident(&mut self) -> Result<String> {
         match self.next()? {
             Token::Ident(ident) => Ok(ident),
-            token => Error::InvalidInput(format!("Unexpected token:{:?}", token)).into(),
-        }
-    }
-
-    fn parse_select_clause(&mut self) -> Result<Vec<(ast::Expression, Option<String>)>> {
-        if !self.next_is(Keyword::Select.into()) {
-            return Ok(Vec::new());
-        }
-        let mut select = Vec::new();
-        loop {
-            let expr = self.parse_expression()?;
-            let label = None;
-            select.push((expr, label));
-            if !self.next_is(Token::Comma) {
-                break;
+            token => {
+                Error::InvalidInput(format!("next ident met unexpected token:{:?}", token)).into()
             }
         }
-        Ok(select)
     }
 
     pub fn parse_expression(&mut self) -> Result<ast::Expression> {

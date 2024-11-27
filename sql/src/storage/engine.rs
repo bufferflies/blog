@@ -1,6 +1,8 @@
 use crate::{encoding::keycode, error::Result};
 
 pub trait ScanIterator: DoubleEndedIterator<Item = Result<(Vec<u8>, Vec<u8>)>> {}
+impl<I: DoubleEndedIterator<Item = Result<(Vec<u8>, Vec<u8>)>>> ScanIterator for I {}
+
 pub trait Engine: Send {
     type ScanIterator<'a>: ScanIterator + 'a
     where
