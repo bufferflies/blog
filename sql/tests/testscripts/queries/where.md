@@ -14,6 +14,13 @@ Filter: TRUE
 2, 'b'
 3, 'c'
 
+[plan,opt]> SELECT * FROM test where true
+---
+Scan: test
+1, 'a'
+2, 'b'
+3, 'c'
+
 
 [plan]> SELECT * FROM test where false
 ---

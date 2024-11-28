@@ -174,4 +174,68 @@ impl Expression {
             Like(lhs, rhs) => format!("{} LIKE {}", format(lhs), format(rhs)),
         }
     }
+
+    pub fn contains(&self, visitor: &impl Fn(&Expression) -> bool) -> bool {
+        !self.walk(&mut |expr| !visitor(expr))
+    }
+
+    pub fn walk(&self, visitor: &mut impl FnMut(&Expression) -> bool) -> bool {
+        if !visitor(self) {
+            return false;
+        }
+        match self {
+            Self::Add(lhs, rhs)
+            | Self::And(lhs, rhs)
+            | Self::Divide(lhs, rhs)
+            | Self::Equal(lhs, rhs)
+            | Self::Exponential(lhs, rhs)
+            | Self::GreaterThan(lhs, rhs)
+            | Self::LessThan(lhs, rhs)
+            | Self::Like(lhs, rhs)
+            | Self::Multiply(lhs, rhs)
+            | Self::Or(lhs, rhs)
+            | Self::Remainder(lhs, rhs)
+            | Self::Subtract(lhs, rhs) => lhs.walk(visitor) && rhs.walk(visitor),
+            Self::Not(expr)
+            | Self::Identity(expr)
+            | Self::Negate(expr)
+            | Self::SquareRoot(expr)
+            | Self::Is(expr, _) => expr.walk(visitor),
+            Self::Constant(_) | Self::Column(_) => true,
+        }
+    }
+
+    pub fn transform(
+        mut self,
+        before: &impl Fn(Self) -> Result<Self>,
+        after: &impl Fn(Self) -> Result<Self>,
+    ) -> Result<Self> {
+        let xform = |mut expr: Box<Expression>| -> Result<Box<Expression>> {
+            *expr = expr.transform(before, after)?;
+            Ok(expr)
+        };
+        self = before(self)?;
+        self = match self {
+            Self::Add(lhs, rhs) => Self::Add(xform(lhs)?, xform(rhs)?),
+            Self::And(lhs, rhs) => Self::And(xform(lhs)?, xform(rhs)?),
+            Self::Divide(lhs, rhs) => Self::Divide(xform(lhs)?, xform(rhs)?),
+            Self::Equal(lhs, rhs) => Self::Equal(xform(lhs)?, xform(rhs)?),
+            Self::Exponential(lhs, rhs) => Self::Exponential(xform(lhs)?, xform(rhs)?),
+            Self::GreaterThan(lhs, rhs) => Self::GreaterThan(xform(lhs)?, xform(rhs)?),
+            Self::LessThan(lhs, rhs) => Self::LessThan(xform(lhs)?, xform(rhs)?),
+            Self::Like(lhs, rhs) => Self::Like(xform(lhs)?, xform(rhs)?),
+            Self::Multiply(lhs, rhs) => Self::Multiply(xform(lhs)?, xform(rhs)?),
+            Self::Or(lhs, rhs) => Self::Or(xform(lhs)?, xform(rhs)?),
+            Self::Remainder(lhs, rhs) => Self::Remainder(xform(lhs)?, xform(rhs)?),
+            Self::Subtract(lhs, rhs) => Self::Subtract(xform(lhs)?, xform(rhs)?),
+            Self::Not(expr) => Self::Not(xform(expr)?),
+            Self::Identity(expr) => Self::Identity(xform(expr)?),
+            Self::Negate(expr) => Self::Negate(xform(expr)?),
+            Self::SquareRoot(expr) => Self::SquareRoot(xform(expr)?),
+            Self::Is(expr, value) => Self::Is(xform(expr)?, value.clone()),
+            Self::Constant(_) | Self::Column(_) => self,
+        };
+        self = after(self)?;
+        Ok(self)
+    }
 }

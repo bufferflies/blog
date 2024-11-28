@@ -4,13 +4,13 @@ mod tests {
 
     use itertools::Itertools;
     use sql::{
-        Parser, Planner,
+        OPTIMIZERS, Parser, Plan, Planner,
         engine::{Engine, Local, Session, StatementResult},
         storage::{self, BitCask},
     };
     use test_each_file::test_each_path;
 
-    test_each_path! { in "sql/tests/testscripts/queries" as math_expressions => test_goldenscript }
+    test_each_path! { in "sql/tests/testscripts/optimizers" as math_expressions => test_goldenscript }
 
     fn test_goldenscript(path: &std::path::Path) {
         let tempdir = tempfile::TempDir::with_prefix("db").expect("tempdir create failed");
@@ -56,6 +56,34 @@ mod tests {
                     plan = plan.optimize()?;
                 }
                 writeln!(output, "{plan}")?;
+            }
+
+            // Output plan optimizations if requested.
+            if tags.remove("opt") {
+                if tags.contains("plan") {
+                    return Err("using both plan and opt is redundant".into());
+                }
+                let ast = Parser::new(input).parse()?;
+                let plan = session.with_txn(true, |txn| Planner::new(txn).build(ast))?;
+                let Plan::Select(mut root) = plan else {
+                    return Err("can only use opt with SELECT plans".into());
+                };
+                writeln!(
+                    output,
+                    "{}",
+                    format!("Initial:\n{root}").replace('\n', "\n   ")
+                )?;
+                for (name, optimizer) in OPTIMIZERS {
+                    let prev = root.clone();
+                    root = optimizer(root)?;
+                    if root != prev {
+                        writeln!(
+                            output,
+                            "{}",
+                            format!("{name}:\n{root}").replace('\n', "\n   ")
+                        )?;
+                    }
+                }
             }
             // Execute the statement.
             let result = session.execute(input)?;

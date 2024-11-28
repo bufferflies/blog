@@ -120,7 +120,7 @@ impl Log {
                             "value extends beyond end of file",
                         ));
                     }
-                    reader.seek_relative(value_len as i64);
+                    reader.seek_relative(value_len as i64)?;
                 }
 
                 Ok((key_buffer, value_pos, value_len_or_tombstone))
@@ -150,7 +150,7 @@ impl Log {
     fn read_value(&mut self, value_ops: u64, value_len: u32) -> Result<Vec<u8>> {
         let mut value = vec![0; value_len as usize];
         self.file.seek(SeekFrom::Start(value_ops))?;
-        self.file.read_exact(&mut value);
+        self.file.read_exact(&mut value)?;
         Ok(value)
     }
 

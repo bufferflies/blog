@@ -2,7 +2,11 @@
 mod tests {
     use std::{error::Error, fmt::Write};
 
-    use sql::{Parser, Planner};
+    use sql::{
+        Parser, Planner, Scope,
+        engine::{Engine, Local},
+        storage,
+    };
     use test_each_file::test_each_path;
 
     test_each_path! { in "sql/tests/testscripts/expressions/math" as math_expressions => test_goldenscript_expr }
@@ -17,6 +21,8 @@ mod tests {
 
     struct ExpressionRunner;
 
+    type Catalog<'a> = <Local<storage::BitCask> as Engine<'a>>::Transaction;
+
     impl goldenscript::Runner for ExpressionRunner {
         fn run(&mut self, command: &goldenscript::Command) -> Result<String, Box<dyn Error>> {
             let mut output = String::new();
@@ -27,11 +33,11 @@ mod tests {
             let mut tags = command.tags.clone();
             let mut parser = Parser::new(input);
             let ast = parser.parse_expression()?;
-            eprintln!("input: {input} → {ast:?}");
+            let scope = Scope::new();
             if let Some(next) = parser.lexer.next().transpose()? {
                 return Err(format!("unconsumed token {next}").into());
             }
-            let expr = Planner::build_expression(ast)?;
+            let expr = Planner::<Catalog>::build_expression(ast, &scope)?;
             let value = expr.evaluate(None)?;
             write!(output, "{value}")?;
 

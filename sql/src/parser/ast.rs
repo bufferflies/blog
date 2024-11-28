@@ -9,7 +9,7 @@ pub enum Statement {
     Explain(Box<Statement>),
     Select {
         select: Vec<(Expression, Option<String>)>,
-        from: Vec<TableName>,
+        from: Vec<From>,
         r#where: Option<Expression>,
         limit: Option<Expression>,
     },
@@ -26,6 +26,28 @@ pub enum Statement {
         columns: Option<Vec<ColumnName>>,
         values: Vec<Vec<Expression>>,
     },
+}
+
+#[derive(Debug)]
+pub enum From {
+    Table {
+        name: String,
+        alias: Option<String>,
+    },
+    Join {
+        left: Box<From>,
+        right: Box<From>,
+        r#type: JoinType,
+        predicate: Option<Expression>,
+    },
+}
+
+#[derive(Debug, PartialEq)]
+pub enum JoinType {
+    Cross,
+    Inner,
+    Left,
+    Right,
 }
 
 #[derive(Clone, Debug, Eq, Hash, PartialEq)]

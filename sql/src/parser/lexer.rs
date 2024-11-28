@@ -1,9 +1,6 @@
 use std::fmt::Display;
 
-use crate::{
-    errinput,
-    error::{Error, Result},
-};
+use crate::error::{Error, Result};
 
 pub struct Lexer<'a> {
     chars: std::iter::Peekable<std::str::Chars<'a>>,
@@ -276,6 +273,7 @@ pub enum Keyword {
     Nan,
     Infinity,
     Like,
+    As,
 }
 
 impl From<Keyword> for Token {
@@ -324,6 +322,7 @@ impl TryFrom<&str> for Keyword {
             "unique" => Self::Unique,
             "default" => Self::Default,
             "index" => Self::Index,
+            "as" => Self::As,
 
             _ => return Err("cannot convert to keyword"),
         })
@@ -368,6 +367,7 @@ impl std::fmt::Display for Keyword {
             Self::Unique => "UNIQUE",
             Self::Default => "DEFAULT",
             Self::Index => "INDEX",
+            Self::As => "AS",
         })
     }
 }

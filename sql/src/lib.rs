@@ -8,5 +8,5 @@ pub mod storage;
 mod types;
 
 pub use parser::Parser;
-pub use planner::Planner;
+pub use planner::{OPTIMIZERS, Plan, Planner, Scope};
 pub use storage::BitCask;

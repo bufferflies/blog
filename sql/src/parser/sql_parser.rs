@@ -1,6 +1,6 @@
 use super::{
     Parser,
-    ast::{self, Column, TableName},
+    ast::{self, Column},
     lexer::{Keyword, Token},
 };
 use crate::{errinput, error::Result, types::schema::DataType};
@@ -37,19 +37,28 @@ impl<'a> Parser<'a> {
         Ok(Some(self.parse_expression()?))
     }
 
-    fn parse_from_clause(&mut self) -> Result<Vec<TableName>> {
+    fn parse_from_clause(&mut self) -> Result<Vec<ast::From>> {
         if !self.next_is(Keyword::From.into()) {
             return Ok(Vec::new());
         }
         let mut from = Vec::new();
         loop {
-            let item = self.next_ident()?;
-            from.push(item);
+            let table = self.parse_from_table()?;
+            from.push(table);
             if !self.next_is(Token::Comma) {
                 break;
             }
         }
         Ok(from)
+    }
+
+    fn parse_from_table(&mut self) -> Result<ast::From> {
+        let name = self.next_ident()?;
+        let mut alias = None;
+        if self.next_is(Keyword::As.into()) || matches!(self.peek()?, Some(Token::Ident(_))) {
+            alias = Some(self.next_ident()?);
+        }
+        Ok(ast::From::Table { name, alias })
     }
 
     fn parse_select_clause(&mut self) -> Result<Vec<(ast::Expression, Option<String>)>> {
@@ -60,7 +69,7 @@ impl<'a> Parser<'a> {
         loop {
             let expr = self.parse_expression()?;
             let mut label = None;
-            if matches!(self.peek()?, Some(Token::Ident(_))) {
+            if self.next_is(Keyword::As.into()) || matches!(self.peek()?, Some(Token::Ident(_))) {
                 if expr == ast::Expression::All {
                     return errinput!("Cannot select all and a column");
                 }

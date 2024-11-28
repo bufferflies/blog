@@ -4,12 +4,11 @@ use serde::{Deserialize, Serialize};
 
 use super::Catalog;
 use crate::{
-    encoding::{self, Key as _, Value as _, keycode},
+    encoding::{self, Key as _, Value as _},
     errinput,
     error::Result,
     storage::{
         self,
-        engine::ScanIterator,
         mvcc::{self},
     },
     types::{

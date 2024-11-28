@@ -3,7 +3,7 @@ use std::collections::HashMap;
 use itertools::Itertools as _;
 use serde::{Deserialize, Serialize};
 
-use super::Planner;
+use super::{Planner, optimizer::OPTIMIZERS};
 use crate::{
     engine::{Catalog, Transaction},
     error::Result,
@@ -35,7 +35,11 @@ impl Plan {
     }
 
     pub fn optimize(self) -> Result<Self> {
-        Ok(self)
+        let optimizers = |node| OPTIMIZERS.iter().try_fold(node, |node, (_, opt)| opt(node));
+        Ok(match self {
+            Self::Select(root) => Self::Select(optimizers(root)?),
+            _ => self,
+        })
     }
 }
 
@@ -85,6 +89,10 @@ pub enum Node {
     },
     Values {
         rows: Vec<Vec<Expression>>,
+    },
+
+    Nothing {
+        columns: Vec<Label>,
     },
 }
 
@@ -150,7 +158,7 @@ impl Node {
             Self::Scan { table, filter } => {
                 write!(f, "Scan: {}", table.name)?;
                 if let Some(filter) = filter {
-                    write!(f, " Filter: {}", filter.format(self))?;
+                    write!(f, " ({})", filter.format(self))?;
                 }
             }
             Self::Values { rows, .. } => {
@@ -160,6 +168,9 @@ impl Node {
                     1 => write!(f, "{}", rows[0].iter().map(|e| e.format(self)).join(","))?,
                     n => write!(f, "{n} rows")?,
                 }
+            }
+            Self::Nothing { .. } => {
+                write!(f, "Nothing")?;
             }
         }
         Ok(())
@@ -175,17 +186,117 @@ impl Node {
             Node::Filter { source, .. } => source.columns(),
             Node::Scan { table, .. } => table.columns.len(),
             Node::Values { rows } => rows.first().map(|r| r.len()).unwrap_or_default(),
+            Node::Nothing { columns } => columns.len(),
             _ => 0,
         }
     }
 
     pub fn column_label(&self, index: usize) -> Label {
         match self {
-            Node::Scan { table, .. } => {
+            Self::Scan { table, .. } => {
                 Label::Qualified(table.name.clone(), table.columns[index].name.clone())
             }
+            Self::Nothing { columns } => columns.get(index).cloned().unwrap_or(Label::None),
             _ => Label::None,
         }
+    }
+
+    pub fn transform(
+        mut self,
+        before: &impl Fn(Self) -> Result<Self>,
+        after: &impl Fn(Self) -> Result<Self>,
+    ) -> Result<Self> {
+        let xform = |mut node: Box<Node>| -> Result<Box<Node>> {
+            *node = node.transform(before, after)?;
+            Ok(node)
+        };
+        self = before(self)?;
+        self = match self {
+            Self::Filter { source, predicate } => Self::Filter {
+                source: xform(source)?,
+                predicate,
+            },
+            Self::Limit { source, limit } => Self::Limit {
+                source: xform(source)?,
+                limit,
+            },
+            Self::Offset { source, offset } => Self::Offset {
+                source: xform(source)?,
+                offset,
+            },
+            Self::Order { source, key } => Self::Order {
+                source: xform(source)?,
+                key,
+            },
+            Self::Aggregate {
+                source,
+                group_by,
+                aggregates,
+            } => Self::Aggregate {
+                source: xform(source)?,
+                group_by,
+                aggregates,
+            },
+            Self::Scan { .. } | Self::Nothing { .. } => self,
+            Self::Values { .. } => self,
+        };
+        self = after(self)?;
+        Ok(self)
+    }
+
+    pub fn transform_expressions(
+        self,
+        before: &impl Fn(Expression) -> Result<Expression>,
+        after: &impl Fn(Expression) -> Result<Expression>,
+    ) -> Result<Self> {
+        Ok(match self {
+            Self::Filter {
+                source,
+                mut predicate,
+            } => {
+                predicate = predicate.transform(before, after)?;
+                Self::Filter { source, predicate }
+            }
+
+            Self::Order { source, mut key } => {
+                key = key
+                    .into_iter()
+                    .map(|(expr, dir)| Ok((expr.transform(before, after)?, dir)))
+                    .collect::<Result<_>>()?;
+                Self::Order { source, key }
+            }
+
+            Self::Scan {
+                table,
+                filter: Some(filter),
+            } => {
+                let filter = Some(filter.transform(before, after)?);
+                Self::Scan { table, filter }
+            }
+
+            Self::Values { mut rows } => {
+                rows = rows
+                    .into_iter()
+                    .map(|row| {
+                        row.into_iter()
+                            .map(|expr| expr.transform(before, after))
+                            .collect()
+                    })
+                    .try_collect()?;
+                Self::Values { rows }
+            }
+            Self::Aggregate { .. }
+            | Self::Limit { .. }
+            | Self::Offset { .. }
+            | Self::Nothing { .. }
+            | Self::Scan { filter: None, .. } => self,
+        })
+    }
+}
+
+impl std::fmt::Display for Node {
+    fn fmt(&self, f: &mut std::fmt::Formatter<'_>) -> std::fmt::Result {
+        self.format(f, "", true, true)
     }
 }
 
