@@ -121,13 +121,13 @@ pub enum Operator {
     Like(Box<Expression>, Box<Expression>), // a LIKE b
 }
 
-impl From<Operator> for Expression {
+impl core::convert::From<Operator> for Expression {
     fn from(op: Operator) -> Self {
         Self::Operator(op)
     }
 }
 
-impl From<Literal> for Expression {
+impl core::convert::From<Literal> for Expression {
     fn from(literal: Literal) -> Self {
         Self::Literal(literal)
     }

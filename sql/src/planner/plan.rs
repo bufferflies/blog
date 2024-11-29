@@ -58,6 +58,12 @@ impl std::fmt::Display for Plan {
 
 #[derive(Clone, Debug, PartialEq, Serialize, Deserialize)]
 pub enum Node {
+    Projection {
+        source: Box<Node>,
+        expressions: Vec<Expression>,
+        aliases: Vec<Label>,
+    },
+
     Aggregate {
         source: Box<Node>,
         group_by: Vec<Expression>,
@@ -132,6 +138,23 @@ impl Node {
                 source.format(f, &prefix, false, true)?;
             }
 
+            Self::Projection {
+                source,
+                expressions,
+                aliases,
+            } => {
+                let expressions = expressions
+                    .iter()
+                    .zip(aliases.iter())
+                    .map(|(expr, alias)| match alias {
+                        Label::None => expr.format(source),
+                        label => format!("{} as {}", expr.format(source), label),
+                    })
+                    .join(",");
+                write!(f, "Projection: {expressions}")?;
+                source.format(f, &prefix, false, true)?;
+            }
+
             Self::Order {
                 source,
                 key: orders,
@@ -183,6 +206,7 @@ impl Node {
                 group_by,
                 ..
             } => aggregates.len() + group_by.len(),
+            Node::Projection { expressions, .. } => expressions.len(),
             Node::Filter { source, .. } => source.columns(),
             Node::Scan { table, .. } => table.columns.len(),
             Node::Values { rows } => rows.first().map(|r| r.len()).unwrap_or_default(),
@@ -196,6 +220,17 @@ impl Node {
             Self::Scan { table, .. } => {
                 Label::Qualified(table.name.clone(), table.columns[index].name.clone())
             }
+            Self::Projection {
+                source,
+                expressions,
+                aliases,
+            } => match aliases.get(index) {
+                Some(Label::None) | None => match expressions.get(index) {
+                    Some(Expression::Column(index)) => source.column_label(*index),
+                    Some(_) | None => Label::None,
+                },
+                Some(label) => label.clone(),
+            },
             Self::Nothing { columns } => columns.get(index).cloned().unwrap_or(Label::None),
             _ => Label::None,
         }
@@ -223,6 +258,15 @@ impl Node {
             Self::Offset { source, offset } => Self::Offset {
                 source: xform(source)?,
                 offset,
+            },
+            Self::Projection {
+                source,
+                expressions,
+                aliases,
+            } => Self::Projection {
+                source: xform(source)?,
+                expressions,
+                aliases,
             },
             Self::Order { source, key } => Self::Order {
                 source: xform(source)?,
@@ -272,6 +316,22 @@ impl Node {
             } => {
                 let filter = Some(filter.transform(before, after)?);
                 Self::Scan { table, filter }
+            }
+
+            Self::Projection {
+                source,
+                expressions,
+                aliases,
+            } => {
+                let expressions = expressions
+                    .into_iter()
+                    .map(|expr| expr.transform(before, after))
+                    .try_collect()?;
+                Self::Projection {
+                    source,
+                    expressions,
+                    aliases,
+                }
             }
 
             Self::Values { mut rows } => {

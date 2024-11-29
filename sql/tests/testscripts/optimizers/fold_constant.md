@@ -43,3 +43,12 @@ Filter pushdown:
    Scan: test (FALSE)
 Short circuit:
    Nothing
+
+[opt]> SELECT id as name FROM test 
+---
+Initial:
+   Projection: test.id as name
+   └─ Scan: test
+1
+2
+3

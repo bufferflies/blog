@@ -58,7 +58,16 @@ pub fn execute(node: Node, txn: &impl Transaction) -> Result<Rows> {
         }
         Node::Values { rows } => source::values(rows),
         Node::Scan { table, filter } => source::scan(txn, table, filter)?,
+        Node::Projection {
+            source,
+            expressions,
+            ..
+        } => {
+            let source = execute(*source, txn)?;
+            transform::projection(source, expressions)
+        }
         Node::Nothing { .. } => source::nothing(),
+
         _ => {
             return errinput!("not support this node:{node:?}");
         }

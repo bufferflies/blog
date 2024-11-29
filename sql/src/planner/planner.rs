@@ -48,7 +48,7 @@ impl<'a, C: Catalog> Planner<'a, C> {
     fn build_select(
         &self,
         mut select: Vec<(ast::Expression, Option<String>)>,
-        from: Vec<String>,
+        from: Vec<ast::From>,
         r#where: Option<ast::Expression>,
         limit: Option<ast::Expression>,
     ) -> Result<Plan> {
@@ -83,7 +83,21 @@ impl<'a, C: Catalog> Planner<'a, C> {
             }
         }
 
-        if select.as_slice() != [(ast::Expression::All, None)] {}
+        if select.as_slice() != [(ast::Expression::All, None)] {
+            let child_scope = scope.project(&select);
+            let mut expressions = Vec::with_capacity(select.len());
+            let mut aliases = Vec::with_capacity(select.len());
+            for (expression, alias) in select {
+                expressions.push(Self::build_expression(expression, &scope)?);
+                aliases.push(Label::from(alias));
+            }
+            scope = child_scope;
+            node = Node::Projection {
+                source: Box::new(node),
+                expressions,
+                aliases,
+            }
+        }
 
         if let Some(limit) = limit {
             let limit = match Self::evaluate_constant(limit)? {
@@ -99,13 +113,31 @@ impl<'a, C: Catalog> Planner<'a, C> {
         Ok(Plan::Select(node))
     }
 
-    fn build_from_clause(&self, from: Vec<String>, scope: &mut Scope) -> Result<Node> {
-        let table = self.catalog.get_table(&from[0])?.unwrap();
-        scope.add_table(&table, None)?;
-        Ok(Node::Scan {
-            table,
-            filter: None,
-        })
+    fn build_from_clause(&self, from: Vec<ast::From>, scope: &mut Scope) -> Result<Node> {
+        let mut items = from.into_iter();
+        let node = match items.next() {
+            Some(from) => self.build_from(from, scope)?,
+            None => return errinput!("no from items given"),
+        };
+
+        Ok(node)
+    }
+
+    fn build_from(&self, from: ast::From, parent_scope: &mut Scope) -> Result<Node> {
+        let mut scope = Scope::new();
+        let node = match from {
+            ast::From::Table { name, alias } => {
+                let table = self.catalog.must_get_table(&name)?;
+                scope.add_table(&table, alias.as_deref())?;
+                Node::Scan {
+                    table,
+                    filter: None,
+                }
+            }
+            _ => return errinput!("not support join {from:?}"),
+        };
+        parent_scope.merge(scope)?;
+        Ok(node)
     }
 
     fn build_insert(
@@ -264,16 +296,45 @@ impl Scope {
         }
     }
 
-    fn from_table(table: &Table) -> Result<Self> {
-        let mut scope = Self::new();
-        scope.add_table(table, None)?;
-        Ok(scope)
+    fn spawn(&self) -> Self {
+        let mut child = Scope::new();
+        child.tables = self.tables.clone();
+        child
+    }
+
+    fn project(&self, expression: &[(ast::Expression, Option<String>)]) -> Self {
+        let mut child = self.spawn();
+        for (expr, alias) in expression {
+            let mut label = Label::None;
+            if let Some(alias) = alias {
+                label = Label::Unqualified(alias.clone());
+            } else if let ast::Expression::Column(table, column) = expr {
+                if let Ok(index) = self.lookup_column(table.as_deref(), column.as_str()) {
+                    label = self.columns[index].clone();
+                }
+            }
+            child.add_column(label);
+        }
+        child
+    }
+
+    fn merge(&mut self, scope: Scope) -> Result<()> {
+        for table in scope.tables {
+            if self.tables.contains(&table) {
+                return errinput!("merge met duplicate table:{table}");
+            }
+            self.tables.insert(table);
+        }
+        for label in scope.columns {
+            self.add_column(label);
+        }
+        Ok(())
     }
 
     fn add_table(&mut self, table: &Table, alias: Option<&str>) -> Result<()> {
         let table_name = alias.unwrap_or(&table.name);
         if self.tables.contains(table_name) {
-            return errinput!("duplicate table:{table_name}");
+            return errinput!("add met duplicate table:{table_name}");
         }
         for column in &table.columns {
             self.add_column(Label::Qualified(

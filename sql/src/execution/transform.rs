@@ -5,7 +5,7 @@ use crate::{
     error::Result,
     planner::Direction,
     types::{
-        expression::Expression,
+        expression::{self, Expression},
         value::{Rows, Value},
     },
 };
@@ -18,6 +18,18 @@ pub fn filter(source: Rows, predicate: Expression) -> Rows {
             value => errinput!("filter returned {value}, expected boolean",),
         })
         .transpose()
+    }))
+}
+
+pub fn projection(source: Rows, expression: Vec<Expression>) -> Rows {
+    Box::new(source.map(move |r| {
+        r.and_then(|row| {
+            let values: Vec<_> = expression
+                .iter()
+                .map(|e| e.evaluate(Some(&row)))
+                .try_collect()?;
+            Ok(values)
+        })
     }))
 }
 
