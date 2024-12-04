@@ -4,6 +4,7 @@
 use std::{cell::RefCell, fmt::Display, rc::Rc};
 mod can_jump_55;
 mod daily_temperatures;
+mod delete_duplicates_82;
 mod delete_middle_2095;
 mod huawei;
 mod is_symmetric_101;

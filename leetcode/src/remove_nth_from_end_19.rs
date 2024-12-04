@@ -34,14 +34,18 @@ mod tests {
     fn test_remove_nth_from_end() {
         for (arr, n, expect) in [
             (vec![1, 2, 3, 4, 5], 2, "1->2->3->5"),
-            // (vec![1,2,3,4],1,"1->2->3->4"),
-            // (vec![1,2,3,4],4,"2->3->4"),
-            // (vec![1,2],1,"1"),
-            // (vec![1],1,""),
+            (vec![1, 2, 3, 4], 1, "1->2->3"),
+            (vec![1, 2, 3, 4], 4, "2->3->4"),
+            (vec![1, 2], 1, "1"),
+            (vec![1], 1, ""),
         ] {
             let list: crate::ListNode = arr.into();
             let result = crate::Solution::remove_nth_from_end(Some(Box::new(list)), n);
-            assert_eq!(expect, result.unwrap().to_string());
+            if expect.is_empty() {
+                assert_eq!(None, result);
+            } else {
+                assert_eq!(expect, result.unwrap().to_string());
+            }
         }
     }
 }
