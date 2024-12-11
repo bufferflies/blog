@@ -49,7 +49,7 @@ mod tests {
 
     #[test]
     fn test() {
-        let s = String::from("1231231231234");
+        let s = String::from("0000");
         let res = Solution::restore_ip_addresses(s);
         assert_eq!(vec!["0.0.0.0"], res);
     }

@@ -18,6 +18,6 @@ mod test {
     fn test_default() {
         let config = Config::default();
         assert_eq!(config.max_spans_per_trace, None);
-        assert_eq!(config.report_interval, Duration::from_secs(2));
+        assert_eq!(config.report_interval, Duration::from_secs(1));
     }
 }

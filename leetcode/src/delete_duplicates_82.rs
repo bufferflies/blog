@@ -8,9 +8,8 @@ impl Solution {
         while let Some(mut cur) = head {
             // 删除 next 节点，并且 head 后移动
             head = cur.next.take();
-            //如果当前访问的值与下一个值相等或与上一个值相等，则当前值不加进去。
-            if (head.is_some() && head.as_ref().unwrap().val == cur.val)
-                || cur.val == pre {
+            // 如果当前访问的值与下一个值相等或与上一个值相等，则当前值不加进去。
+            if (head.is_some() && head.as_ref().unwrap().val == cur.val) || cur.val == pre {
                 pre = cur.val;
             } else {
                 pre = cur.val;
@@ -27,8 +26,8 @@ impl Solution {
         while let Some(mut cur) = head {
             // 删除 next 节点，并且 head 后移动
             head = cur.next.take();
-            //如果当前访问的值与下一个值相等或与上一个值相等，则当前值不加进去。
-            if head.is_some() && head.as_ref().unwrap().val == cur.val{
+            // 如果当前访问的值与下一个值相等或与上一个值相等，则当前值不加进去。
+            if head.is_some() && head.as_ref().unwrap().val == cur.val {
                 continue;
             } else {
                 p.next = Some(cur);
